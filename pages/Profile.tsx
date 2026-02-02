@@ -79,17 +79,34 @@ const Profile: React.FC<ProfileProps> = ({ user, users, setUsers, onUpdate, expo
       }
    };
 
-   const handleSave = () => {
-      setIsSaved(true);
+   const handleSave = async () => {
       const updatedUser = {
          ...user,
          name: formData.name,
          email: formData.email,
-         avatarUrl: formData.avatarUrl
+         avatarUrl: formData.avatarUrl,
+         // Only update password if provided
+         ...(formData.password ? { password: formData.password, password_hash: formData.password } : {})
       };
-      onUpdate(updatedUser);
-      setUsers(prevUsers => prevUsers.map(u => u.id === user.id ? updatedUser : u));
-      setTimeout(() => setIsSaved(false), 3000);
+
+      try {
+         // Save to Database
+         await db.update('users', updatedUser.id, updatedUser);
+
+         // Update Local State
+         setIsSaved(true);
+         onUpdate(updatedUser);
+         // Update Users List
+         setUsers(prevUsers => prevUsers.map(u => u.id === user.id ? updatedUser : u));
+
+         // Update LocalStorage to persist login session
+         localStorage.setItem('cs_user', JSON.stringify(updatedUser));
+
+         setTimeout(() => setIsSaved(false), 3000);
+      } catch (e) {
+         console.error(e);
+         alert('فشل حفظ البيانات في قاعدة البيانات');
+      }
    };
 
    // إحصائيات المهام

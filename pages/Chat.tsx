@@ -100,7 +100,10 @@ export default function ChatPage({ users = [] }) {
   }, [messages, selectedUser]);
 
   const handleSend = async () => {
-    if (!input.trim() || !selectedUser || !currentUser) return;
+    if (!input.trim() || !selectedUser || !currentUser) {
+      console.warn("Send aborted:", { input: !!input.trim(), selectedUser: !!selectedUser, currentUser: !!currentUser });
+      return;
+    }
 
     const textToSend = input;
     // Optimistic UI Update

@@ -122,11 +122,21 @@ const Projects: React.FC<ProjectsProps> = ({ user, projects, setProjects, client
   };
 
   const filteredProjects = useMemo(() => {
-    return projects.filter(p =>
+    let relevantProjects = projects;
+
+    // Filter projects for non-admins: Only show if they created it OR have tasks in it
+    if (!['admin', 'owner', 'manager', 'general_manager'].includes(user.role?.toLowerCase() || '')) {
+      relevantProjects = projects.filter(p =>
+        p.createdByUserId === user.id ||
+        tasks.some(t => (t.projectId === p.id || t.clientId === p.clientId) && t.assignedToUserId === user.id)
+      );
+    }
+
+    return relevantProjects.filter(p =>
       p.name.includes(searchTerm) ||
       clients.find(c => c.id === p.clientId)?.name.includes(searchTerm)
     );
-  }, [projects, clients, searchTerm]);
+  }, [projects, clients, searchTerm, user, tasks]);
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700" dir="rtl">

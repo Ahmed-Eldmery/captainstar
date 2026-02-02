@@ -1,9 +1,9 @@
 
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { 
-  ArrowRight, Calendar, DollarSign, Target, CheckSquare, 
-  Clock, Users, ChevronLeft, MoreHorizontal, Layout, 
+import {
+  ArrowRight, Calendar, DollarSign, Target, CheckSquare,
+  Clock, Users, ChevronLeft, MoreHorizontal, Layout,
   Zap, AlertCircle, CheckCircle2, ListTodo, FileText, Play,
   Plus, X, Check, Trash2, Edit2, Save
 } from 'lucide-react';
@@ -21,15 +21,22 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ user, projects, clients
   const { id } = useParams<{ id: string }>();
   const project = useMemo(() => projects.find(p => p.id === id), [id, projects]);
   const client = useMemo(() => clients.find(c => c.id === project?.clientId), [project, clients]);
-  
-  const projectTasks = useMemo(() => 
-    tasks.filter(t => t.projectId === id || (t.clientId === project?.clientId && !t.projectId)),
-    [id, project, tasks]
-  );
+
+  const projectTasks = useMemo(() => {
+    const allTasks = tasks.filter(t => t.projectId === id || (t.clientId === project?.clientId && !t.projectId));
+
+    // If Admin, Owner, or General Manager, show all tasks
+    if (['admin', 'owner', 'manager', 'general_manager'].includes(user.role?.toLowerCase() || '')) {
+      return allTasks;
+    }
+
+    // Otherwise, only show tasks assigned to the current user
+    return allTasks.filter(t => t.assignedToUserId === user.id);
+  }, [id, project, tasks, user]);
 
   // حالة المهام والأهداف المحلية
-  const [localGoals, setLocalGoals] = useState<Array<{id: string, title: string, completed: boolean}>>([]);
-  const [localTodos, setLocalTodos] = useState<Array<{id: string, title: string, completed: boolean}>>([]);
+  const [localGoals, setLocalGoals] = useState<Array<{ id: string, title: string, completed: boolean }>>([]);
+  const [localTodos, setLocalTodos] = useState<Array<{ id: string, title: string, completed: boolean }>>([]);
   const [newGoal, setNewGoal] = useState('');
   const [newTodo, setNewTodo] = useState('');
   const [isEditingGoals, setIsEditingGoals] = useState(false);
@@ -87,98 +94,98 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ user, projects, clients
             <ArrowRight className="w-6 h-6 text-slate-400" />
           </Link>
           <div className="text-right">
-             <div className="flex items-center gap-4 mb-2">
-                <h1 className="text-4xl font-black text-slate-900">{project.name}</h1>
-                <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${currentStatusConfig.color}`}>
-                  {currentStatusConfig.label}
-                </span>
-             </div>
-             <p className="text-slate-400 font-bold flex items-center gap-2">
-                <Target className="w-4 h-4 text-rose-500" /> مشروع لصالح: <span className="text-slate-900">{client?.name}</span>
-             </p>
+            <div className="flex items-center gap-4 mb-2">
+              <h1 className="text-4xl font-black text-slate-900">{project.name}</h1>
+              <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${currentStatusConfig.color}`}>
+                {currentStatusConfig.label}
+              </span>
+            </div>
+            <p className="text-slate-400 font-bold flex items-center gap-2">
+              <Target className="w-4 h-4 text-rose-500" /> مشروع لصالح: <span className="text-slate-900">{client?.name}</span>
+            </p>
           </div>
         </div>
         <div className="flex gap-4 relative">
-           <div className="relative">
-             <button 
-               onClick={() => setIsQuickActionOpen(!isQuickActionOpen)}
-               className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black shadow-xl hover:bg-rose-600 transition-all flex items-center gap-3 active:scale-95"
-             >
-               <Zap className="w-5 h-5 text-rose-500" /> إجراء سريع
-             </button>
+          <div className="relative">
+            <button
+              onClick={() => setIsQuickActionOpen(!isQuickActionOpen)}
+              className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black shadow-xl hover:bg-rose-600 transition-all flex items-center gap-3 active:scale-95"
+            >
+              <Zap className="w-5 h-5 text-rose-500" /> إجراء سريع
+            </button>
 
-             {isQuickActionOpen && (
-               <div className="absolute top-full left-0 mt-3 bg-white border-2 border-slate-200 rounded-2xl shadow-2xl z-50 w-64 overflow-hidden">
-                 {/* تغيير الحالة */}
-                 <div className="border-b border-slate-100">
-                   <p className="text-xs font-black text-slate-500 uppercase px-4 pt-4 pb-2">تغيير الحالة</p>
-                   <div className="space-y-2 px-2 pb-4">
-                     {[
-                       { value: ProjectStatus.PLANNED, label: 'مخطط له' },
-                       { value: ProjectStatus.IN_PROGRESS, label: 'قيد التنفيذ' },
-                       { value: ProjectStatus.COMPLETED, label: 'مكتمل' },
-                       { value: ProjectStatus.ON_HOLD, label: 'متوقف مؤقتاً' },
-                       { value: ProjectStatus.CANCELLED, label: 'ملغي' }
-                     ].map(status => (
-                       <button
-                         key={status.value}
-                         onClick={() => {
-                           // تغيير الحالة هنا
-                           console.log('تغيير الحالة إلى:', status.value);
-                           setIsQuickActionOpen(false);
-                         }}
-                         className={`w-full text-right px-4 py-2 rounded-lg font-bold text-sm transition-all ${project.status === status.value ? 'bg-rose-100 text-rose-600' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
-                       >
-                         {status.label}
-                       </button>
-                     ))}
-                   </div>
-                 </div>
+            {isQuickActionOpen && (
+              <div className="absolute top-full left-0 mt-3 bg-white border-2 border-slate-200 rounded-2xl shadow-2xl z-50 w-64 overflow-hidden">
+                {/* تغيير الحالة */}
+                <div className="border-b border-slate-100">
+                  <p className="text-xs font-black text-slate-500 uppercase px-4 pt-4 pb-2">تغيير الحالة</p>
+                  <div className="space-y-2 px-2 pb-4">
+                    {[
+                      { value: ProjectStatus.PLANNED, label: 'مخطط له' },
+                      { value: ProjectStatus.IN_PROGRESS, label: 'قيد التنفيذ' },
+                      { value: ProjectStatus.COMPLETED, label: 'مكتمل' },
+                      { value: ProjectStatus.ON_HOLD, label: 'متوقف مؤقتاً' },
+                      { value: ProjectStatus.CANCELLED, label: 'ملغي' }
+                    ].map(status => (
+                      <button
+                        key={status.value}
+                        onClick={() => {
+                          // تغيير الحالة هنا
+                          console.log('تغيير الحالة إلى:', status.value);
+                          setIsQuickActionOpen(false);
+                        }}
+                        className={`w-full text-right px-4 py-2 rounded-lg font-bold text-sm transition-all ${project.status === status.value ? 'bg-rose-100 text-rose-600' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'}`}
+                      >
+                        {status.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                 {/* إضافة مهمة سريعة */}
-                 <div className="border-b border-slate-100">
-                   <p className="text-xs font-black text-slate-500 uppercase px-4 pt-4 pb-2">إضافة مهمة سريعة</p>
-                   <div className="space-y-2 px-4 pb-4">
-                     {['محتوى', 'تصميم', 'فيديو', 'سيو'].map(type => (
-                       <button
-                         key={type}
-                         onClick={() => {
-                           handleAddTodo();
-                           console.log('إضافة مهمة من نوع:', type);
-                           setIsQuickActionOpen(false);
-                         }}
-                         className="w-full text-right px-4 py-2 bg-slate-50 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-100 transition-all"
-                       >
-                         + {type}
-                       </button>
-                     ))}
-                   </div>
-                 </div>
+                {/* إضافة مهمة سريعة */}
+                <div className="border-b border-slate-100">
+                  <p className="text-xs font-black text-slate-500 uppercase px-4 pt-4 pb-2">إضافة مهمة سريعة</p>
+                  <div className="space-y-2 px-4 pb-4">
+                    {['محتوى', 'تصميم', 'فيديو', 'سيو'].map(type => (
+                      <button
+                        key={type}
+                        onClick={() => {
+                          handleAddTodo();
+                          console.log('إضافة مهمة من نوع:', type);
+                          setIsQuickActionOpen(false);
+                        }}
+                        className="w-full text-right px-4 py-2 bg-slate-50 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-100 transition-all"
+                      >
+                        + {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                 {/* تصدير وإجراءات أخرى */}
-                 <div className="px-2 py-4 space-y-2">
-                   <button
-                     onClick={() => {
-                       console.log('تصدير تقرير المشروع');
-                       setIsQuickActionOpen(false);
-                     }}
-                     className="w-full text-right px-4 py-2 bg-blue-50 text-blue-600 rounded-lg font-bold text-sm hover:bg-blue-100 transition-all"
-                   >
-                     📊 تصدير تقرير
-                   </button>
-                   <button
-                     onClick={() => {
-                       console.log('مشاركة المشروع');
-                       setIsQuickActionOpen(false);
-                     }}
-                     className="w-full text-right px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg font-bold text-sm hover:bg-emerald-100 transition-all"
-                   >
-                     🔗 مشاركة المشروع
-                   </button>
-                 </div>
-               </div>
-             )}
-           </div>
+                {/* تصدير وإجراءات أخرى */}
+                <div className="px-2 py-4 space-y-2">
+                  <button
+                    onClick={() => {
+                      console.log('تصدير تقرير المشروع');
+                      setIsQuickActionOpen(false);
+                    }}
+                    className="w-full text-right px-4 py-2 bg-blue-50 text-blue-600 rounded-lg font-bold text-sm hover:bg-blue-100 transition-all"
+                  >
+                    📊 تصدير تقرير
+                  </button>
+                  <button
+                    onClick={() => {
+                      console.log('مشاركة المشروع');
+                      setIsQuickActionOpen(false);
+                    }}
+                    className="w-full text-right px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg font-bold text-sm hover:bg-emerald-100 transition-all"
+                  >
+                    🔗 مشاركة المشروع
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -247,7 +254,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ user, projects, clients
               <h3 className="text-2xl font-black text-slate-900 flex items-center gap-3">
                 <Target className="text-rose-600 w-7 h-7" /> أهداف الحملة
               </h3>
-              <button 
+              <button
                 onClick={() => setIsEditingGoals(!isEditingGoals)}
                 className={`p-2 rounded-lg transition-all ${isEditingGoals ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400 hover:text-rose-600'}`}
               >
@@ -328,7 +335,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ user, projects, clients
               <h3 className="text-2xl font-black text-slate-900 flex items-center gap-3">
                 <ListTodo className="text-rose-600 w-7 h-7" /> قائمة المتطلبات والمهام
               </h3>
-              <button 
+              <button
                 onClick={() => setIsEditingTodos(!isEditingTodos)}
                 className={`p-2 rounded-lg transition-all ${isEditingTodos ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400 hover:text-rose-600'}`}
               >
@@ -407,66 +414,66 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ user, projects, clients
           {/* جدول المهام الرسمية */}
           <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-xl shadow-slate-200/30 overflow-hidden">
             <div className="p-10 border-b border-slate-50 flex items-center justify-between">
-               <h3 className="text-2xl font-black text-slate-900 flex items-center gap-3">
-                  <ListTodo className="text-rose-600 w-7 h-7" /> جدول العمليات والمهام المسندة
-               </h3>
-               <Link to="/tasks" className="text-xs font-black text-rose-600 hover:underline">عرض الكل &rarr;</Link>
+              <h3 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                <ListTodo className="text-rose-600 w-7 h-7" /> جدول العمليات والمهام المسندة
+              </h3>
+              <Link to="/tasks" className="text-xs font-black text-rose-600 hover:underline">عرض الكل &rarr;</Link>
             </div>
             <div className="divide-y divide-slate-50">
-               {projectTasks.length > 0 ? projectTasks.map(task => (
-                 <Link key={task.id} to={`/tasks/${task.id}`} className="flex items-center justify-between p-8 hover:bg-slate-50 transition-all group">
-                    <div className="flex items-center gap-6">
-                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm border ${task.status === TaskStatus.DONE ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-white text-slate-400 border-slate-100'}`}>
-                          {task.status === TaskStatus.DONE ? <CheckCircle2 className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
-                       </div>
-                       <div>
-                          <p className="text-lg font-black text-slate-900 group-hover:text-rose-600 transition-colors">{task.title}</p>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter mt-1">{task.type} &bull; {task.priority}</p>
-                       </div>
+              {projectTasks.length > 0 ? projectTasks.map(task => (
+                <Link key={task.id} to={`/tasks/${task.id}`} className="flex items-center justify-between p-8 hover:bg-slate-50 transition-all group">
+                  <div className="flex items-center gap-6">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm border ${task.status === TaskStatus.DONE ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-white text-slate-400 border-slate-100'}`}>
+                      {task.status === TaskStatus.DONE ? <CheckCircle2 className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
                     </div>
-                    <div className="flex items-center gap-4">
-                       <div className="w-10 h-10 bg-slate-100 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-black shadow-sm">
-                          {users.find(u => u.id === task.assignedToUserId)?.name.charAt(0) || '?'}
-                       </div>
-                       <ChevronLeft className="w-5 h-5 text-slate-300 group-hover:text-rose-600 transition-transform" />
+                    <div>
+                      <p className="text-lg font-black text-slate-900 group-hover:text-rose-600 transition-colors">{task.title}</p>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter mt-1">{task.type} &bull; {task.priority}</p>
                     </div>
-                 </Link>
-               )) : (
-                 <div className="p-20 text-center space-y-4">
-                    <AlertCircle className="w-16 h-16 text-slate-200 mx-auto" />
-                    <p className="text-xl font-black text-slate-400">لا توجد مهام مرتبطة بهذا المشروع بعد.</p>
-                 </div>
-               )}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-slate-100 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-black shadow-sm">
+                      {users.find(u => u.id === task.assignedToUserId)?.name.charAt(0) || '?'}
+                    </div>
+                    <ChevronLeft className="w-5 h-5 text-slate-300 group-hover:text-rose-600 transition-transform" />
+                  </div>
+                </Link>
+              )) : (
+                <div className="p-20 text-center space-y-4">
+                  <AlertCircle className="w-16 h-16 text-slate-200 mx-auto" />
+                  <p className="text-xl font-black text-slate-400">لا توجد مهام مرتبطة بهذا المشروع بعد.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
-        
+
         <div className="space-y-10 text-right">
           <div className="bg-slate-950 p-10 rounded-[3.5rem] text-white shadow-2xl shadow-slate-900/40 relative overflow-hidden">
             <Zap className="absolute -bottom-10 -left-10 w-40 h-40 opacity-10" />
             <h3 className="text-xl font-black mb-8 flex items-center gap-3 relative z-10 justify-end">
-               فريق العمل المجمع <Users className="text-rose-500" />
+              فريق العمل المجمع <Users className="text-rose-500" />
             </h3>
             <div className="space-y-6 relative z-10">
-               {projectTasks.length > 0 ? (
-                 <div className="flex flex-wrap gap-4 justify-end">
-                   {Array.from(new Set(projectTasks.map(t => t.assignedToUserId))).filter(id => id).map(id => {
-                     const u = users.find(user => user.id === id);
-                     return (
-                       <div key={id} className="group relative">
-                          <div className="w-14 h-14 bg-white/10 rounded-2xl border border-white/20 flex items-center justify-center text-rose-500 font-black text-xl hover:bg-rose-600 hover:text-white transition-all cursor-pointer shadow-lg" title={u?.name}>
-                            {u?.name.charAt(0)}
-                          </div>
-                          <span className="absolute bottom-full right-0 mb-2 px-3 py-1 bg-white text-slate-900 text-[10px] font-black rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-xl whitespace-nowrap">
-                            {u?.name}
-                          </span>
-                       </div>
-                     );
-                   })}
-                 </div>
-               ) : (
-                 <p className="text-slate-500 font-bold text-sm">سيظهر أعضاء الفريق هنا عند تعيين مهام لهم.</p>
-               )}
+              {projectTasks.length > 0 ? (
+                <div className="flex flex-wrap gap-4 justify-end">
+                  {Array.from(new Set(projectTasks.map(t => t.assignedToUserId))).filter(id => id).map(id => {
+                    const u = users.find(user => user.id === id);
+                    return (
+                      <div key={id} className="group relative">
+                        <div className="w-14 h-14 bg-white/10 rounded-2xl border border-white/20 flex items-center justify-center text-rose-500 font-black text-xl hover:bg-rose-600 hover:text-white transition-all cursor-pointer shadow-lg" title={u?.name}>
+                          {u?.name.charAt(0)}
+                        </div>
+                        <span className="absolute bottom-full right-0 mb-2 px-3 py-1 bg-white text-slate-900 text-[10px] font-black rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-xl whitespace-nowrap">
+                          {u?.name}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-slate-500 font-bold text-sm">سيظهر أعضاء الفريق هنا عند تعيين مهام لهم.</p>
+              )}
             </div>
           </div>
         </div>
