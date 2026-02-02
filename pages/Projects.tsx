@@ -127,8 +127,8 @@ const Projects: React.FC<ProjectsProps> = ({ user, projects, setProjects, client
     // Filter projects for non-admins: Only show if they created it OR have tasks in it
     if (!['admin', 'owner', 'manager', 'general_manager'].includes(user.role?.toLowerCase() || '')) {
       relevantProjects = projects.filter(p =>
-        p.createdByUserId === user.id ||
-        tasks.some(t => (t.projectId === p.id || t.clientId === p.clientId) && t.assignedToUserId === user.id)
+        String(p.createdByUserId) === String(user.id) ||
+        tasks.some(t => (t.projectId === p.id || t.clientId === p.clientId) && String(t.assignedToUserId) === String(user.id))
       );
     }
 

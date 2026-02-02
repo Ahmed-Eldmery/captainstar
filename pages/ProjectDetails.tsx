@@ -30,8 +30,8 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ user, projects, clients
       return allTasks;
     }
 
-    // Otherwise, only show tasks assigned to the current user
-    return allTasks.filter(t => t.assignedToUserId === user.id);
+    // Otherwise, only show tasks assigned to the current user (using loose comparison for safety)
+    return allTasks.filter(t => String(t.assignedToUserId) === String(user.id));
   }, [id, project, tasks, user]);
 
   // حالة المهام والأهداف المحلية

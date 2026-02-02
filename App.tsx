@@ -251,8 +251,48 @@ const App: React.FC = () => {
       }
     };
 
-    if (user) fetchAllData();
-    else setLoading(false);
+    if (user) {
+      fetchAllData();
+
+      // --- Realtime Subscriptions ---
+      const subscription = supabase
+        .channel('global_changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newTask = payload.new as Task;
+            setTasks(prev => [newTask, ...prev]);
+            if (String(newTask.assignedToUserId) === String(user.id)) {
+              // Show simple toast (could be improved with a proper Toast component)
+              const audio = new Audio('/notification.mp3'); // Optional sound
+              audio.play().catch(() => { });
+              alert(`🔔 مهمة جديدة: ${newTask.title}`);
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            setTasks(prev => prev.map(t => t.id === payload.new.id ? payload.new as Task : t));
+          } else if (payload.eventType === 'DELETE') {
+            setTasks(prev => prev.filter(t => t.id !== payload.old.id));
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, (payload) => {
+          if (payload.eventType === 'INSERT') setProjects(prev => [payload.new as Project, ...prev]);
+          else if (payload.eventType === 'UPDATE') setProjects(prev => prev.map(p => p.id === payload.new.id ? payload.new as Project : p));
+          else if (payload.eventType === 'DELETE') setProjects(prev => prev.filter(p => p.id !== payload.old.id));
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
+          const notif = payload.new;
+          if (String(notif.user_id) === String(user.id) || notif.user_id === 'all') {
+            // Trigger UI update or Toast
+            alert(`🔔 ${notif.title}\n${notif.message}`);
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(subscription);
+      };
+    } else {
+      setLoading(false);
+    }
   }, [user]);
 
   const handleLogin = (u: User) => {

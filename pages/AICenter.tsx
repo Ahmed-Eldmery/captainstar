@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import { GoogleGenAI } from "@google/genai";
 import {
   Video, ImageIcon, MessageSquare, Sparkles,
@@ -20,19 +21,35 @@ const AICenter: React.FC<{ user: any }> = ({ user }) => {
   const [apiKeyStatus, setApiKeyStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
 
   // --- API Key Management ---
-  // --- API Key Management ---
+  // --- API Key Management (Global & Manual) ---
   const [manualKey, setManualKey] = useState('');
+  const [isGlobalKey, setIsGlobalKey] = useState(false);
 
   useEffect(() => {
     const checkStatus = async () => {
-      // Check for manual key first
+      // 1. Check Global DB Key (Highest Priority)
+      try {
+        const { data } = await supabase.from('agency_settings').select('value').eq('key', 'gemini_api_key').single();
+        if (data?.value) {
+          setApiKeyStatus('connected');
+          setIsGlobalKey(true);
+          // Sync to local storage for speed/redundancy
+          localStorage.setItem('gemini_api_key', data.value);
+          return;
+        }
+      } catch (e) {
+        console.error("Error fetching global key:", e);
+      }
+
+      // 2. Check Local Storage
       const storedKey = localStorage.getItem('gemini_api_key');
       if (storedKey) {
         setApiKeyStatus('connected');
+        setIsGlobalKey(false);
         return;
       }
 
-      // Then check AI Studio extension
+      // 3. Fallback to AI Studio Extension
       if (window.aistudio) {
         const hasKey = await window.aistudio.hasSelectedApiKey();
         setApiKeyStatus(hasKey ? 'connected' : 'disconnected');
@@ -43,23 +60,53 @@ const AICenter: React.FC<{ user: any }> = ({ user }) => {
     checkStatus();
   }, []);
 
-  const handleSaveManualKey = () => {
-    if (manualKey) {
+  const handleSaveKey = async () => {
+    if (!manualKey) return;
+
+    // If Admin/Owner, save globally
+    if (user.role === 'admin' || user.role === 'owner') {
+      try {
+        const { error } = await supabase.from('agency_settings').upsert({
+          key: 'gemini_api_key',
+          value: manualKey,
+          description: 'Global Gemini API Key'
+        });
+
+        if (error) throw error;
+
+        alert('تم حفظ المفتاح كإعداد عام لجميع المستخدمين!');
+        setIsGlobalKey(true);
+      } catch (err: any) {
+        console.error(err);
+        alert('فشل حفظ المفتاح العام: ' + err.message);
+        // Fallback to local save if DB fails
+        localStorage.setItem('gemini_api_key', manualKey);
+      }
+    } else {
+      // Regular user: Local Save only
       localStorage.setItem('gemini_api_key', manualKey);
-      setApiKeyStatus('connected');
-      alert('تم حفظ المفتاح بنجاح! يمكنك الآن استخدام أدوات الذكاء الاصطناعي.');
+      alert('تم حفظ المفتاح محلياً لجهازك فقط.');
     }
+
+    setApiKeyStatus('connected');
   };
 
   const getApiKey = async () => {
+    // 1. Try DB first (always fresh)
+    const { data } = await supabase.from('agency_settings').select('value').eq('key', 'gemini_api_key').single();
+    if (data?.value) return data.value;
+
+    // 2. Local Storage
     const stored = localStorage.getItem('gemini_api_key');
     if (stored) return stored;
-    return process.env.API_KEY; // Fallback to env
+
+    // 3. Env
+    return process.env.API_KEY;
   };
 
   const checkKeyBeforeAction = async () => {
-    const stored = localStorage.getItem('gemini_api_key');
-    if (stored) return true;
+    const key = await getApiKey();
+    if (key) return true;
 
     if (window.aistudio) {
       const hasKey = await window.aistudio.hasSelectedApiKey();
@@ -70,10 +117,10 @@ const AICenter: React.FC<{ user: any }> = ({ user }) => {
       return true;
     }
 
-    // If no key and no extension
-    const key = prompt('الرجاء إدخال مفتاح Gemini API الخاص بك للمتابعة:');
-    if (key) {
-      localStorage.setItem('gemini_api_key', key);
+    // Prompt if totally missing
+    const inputKey = prompt('الرجاء إدخال مفتاح Gemini API للمتابعة (سيتم حفظه محلياً):');
+    if (inputKey) {
+      localStorage.setItem('gemini_api_key', inputKey);
       setApiKeyStatus('connected');
       return true;
     }
@@ -262,9 +309,9 @@ const AICenter: React.FC<{ user: any }> = ({ user }) => {
             <div className="flex items-center gap-3">
               <h1 className="text-4xl font-black text-slate-900 leading-tight">مركز النجم للذكاء الاصطناعي</h1>
               {apiKeyStatus === 'connected' ? (
-                <div className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black border border-emerald-100 flex items-center gap-1.5 animate-in zoom-in-90 duration-300">
-                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                  المفتاح متصل
+                <div className={`px-3 py-1 rounded-lg text-[10px] font-black border flex items-center gap-1.5 animate-in zoom-in-90 duration-300 ${isGlobalKey ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isGlobalKey ? 'bg-purple-500' : 'bg-emerald-500'}`}></div>
+                  {isGlobalKey ? 'مفتاح موحد (Global)' : 'مفتاح شخصي'}
                 </div>
               ) : apiKeyStatus === 'disconnected' ? (
                 <div className="px-3 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black border border-rose-100 flex items-center gap-1.5">
@@ -285,19 +332,19 @@ const AICenter: React.FC<{ user: any }> = ({ user }) => {
             <div className="flex items-center gap-2">
               <input
                 type="password"
-                placeholder="أدخل Gemini API Key هنا..."
+                placeholder={user.role === 'admin' ? "أدخل مفتاح عام للشركة..." : "أدخل مفتاحك الشخصي..."}
                 value={manualKey}
                 onChange={e => setManualKey(e.target.value)}
                 className="px-4 py-3 rounded-xl border border-slate-200 text-sm outline-none focus:border-rose-500"
               />
-              <button onClick={handleSaveManualKey} className="p-3 bg-slate-900 text-white rounded-xl hover:bg-rose-600 transition-colors">
+              <button onClick={handleSaveKey} className="p-3 bg-slate-900 text-white rounded-xl hover:bg-rose-600 transition-colors">
                 <CheckCircle2 className="w-5 h-5" />
               </button>
             </div>
           )}
           {apiKeyStatus === 'connected' && (
             <button
-              onClick={() => { localStorage.removeItem('gemini_api_key'); setApiKeyStatus('disconnected'); }}
+              onClick={() => { localStorage.removeItem('gemini_api_key'); setApiKeyStatus('disconnected'); setIsGlobalKey(false); }}
               className="px-6 py-3 bg-rose-50 text-rose-600 font-black rounded-xl hover:bg-rose-100 transition-all text-xs"
             >
               فصل المفتاح

@@ -41,10 +41,19 @@ export default function ChatPage({ users = [] }) {
 
     const fetchMessages = async () => {
       // Fetch messages between me and selected user
+      // We convert IDs to string to ensure matching regardless of DB type (int/text)
+      const myId = String(currentUser.id);
+      const otherId = String(selectedUser.id);
+
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${selectedUser.id}),and(sender_id.eq.${selectedUser.id},receiver_id.eq.${currentUser.id})`)
+        .or(`sender_id.eq.${myId},sender_id.eq.${otherId}`)
+        .or(`receiver_id.eq.${myId},receiver_id.eq.${otherId}`)
+        // We need to filter client-side or use a more complex OR because Supabase/PostgREST simple OR is limited
+        // The previous query was correct for logic but maybe syntax issue.
+        // Let's try the standard syntax with .or() containing the exact logic
+        .or(`and(sender_id.eq.${myId},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${myId})`)
         .order('created_at', { ascending: true });
 
       if (data) setMessages(data);
@@ -68,10 +77,13 @@ export default function ChatPage({ users = [] }) {
       .channel('chat_room')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const newMsg = payload.new;
-        // Check if this message belongs to the current conversation
+        // Check if this message belongs to the current conversation (String comparison)
+        const myId = String(currentUser.id);
+        const otherId = String(selectedUser.id);
+
         const isRelevant =
-          (newMsg.sender_id === currentUser.id && newMsg.receiver_id === selectedUser.id) ||
-          (newMsg.sender_id === selectedUser.id && newMsg.receiver_id === currentUser.id);
+          (String(newMsg.sender_id) === myId && String(newMsg.receiver_id) === otherId) ||
+          (String(newMsg.sender_id) === otherId && String(newMsg.receiver_id) === myId);
 
         if (isRelevant) {
           setMessages(prev => {
