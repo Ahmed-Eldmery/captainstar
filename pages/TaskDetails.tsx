@@ -5,7 +5,7 @@ import {
   ArrowRight, Calendar, User, Clock,
   MessageSquare, Send, Sparkles, Loader2,
   AlertCircle, CheckCircle2, ChevronDown, Flag,
-  Trash2, ShieldCheck, CalendarIcon, ThumbsUp, ThumbsDown
+  Trash2, ShieldCheck, CalendarIcon, ThumbsUp, ThumbsDown, Link2 as LinkIcon
 } from 'lucide-react';
 import { generateAIResponse } from '../lib/gemini';
 import { TaskStatus, TaskPriority, TaskType, User as UserType, Client, Task } from '../types.ts';
@@ -242,6 +242,45 @@ const TaskDetails: React.FC<TaskDetailsProps> = ({ user, tasks, setTasks, client
                   />
                 </div>
               </div>
+            </div>
+
+            <div className="space-y-4 pt-6 border-t border-slate-100">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest pr-2 flex items-center gap-2">
+                <LinkIcon className="w-4 h-4 text-blue-500" /> رابط خطة المحتوى (Plan Link)
+              </label>
+              <input
+                type="url"
+                placeholder="https://docs.google.com/..."
+                value={task.planLink || ''}
+                onChange={(e) => {
+                  const newLink = e.target.value;
+                  const updated = { ...task, planLink: newLink };
+                  setTasks(tasks.map(t => t.id === task.id ? updated : t));
+                  // Auto-save logic could go here or rely on the main save button
+                }}
+                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 text-sm font-bold text-blue-600 outline-none hover:border-blue-200 focus:border-blue-500 transition-all"
+                dir="ltr"
+              />
+              <p className="text-[10px] text-slate-400 pr-2">يمكن لصانع المحتوى إضافة رابط الخطة هنا.</p>
+            </div>
+
+            <div className="space-y-4 pt-6 border-t border-slate-100">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest pr-2 flex items-center gap-2">
+                <LinkIcon className="w-4 h-4 text-blue-500" /> رابط خطة المحتوى (Plan Link)
+              </label>
+              <input
+                type="url"
+                placeholder="https://docs.google.com/..."
+                value={task.planLink || ''}
+                onChange={(e) => {
+                  const newLink = e.target.value;
+                  const updated = { ...task, planLink: newLink };
+                  setTasks(tasks.map(t => t.id === task.id ? updated : t));
+                }}
+                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 text-sm font-bold text-blue-600 outline-none hover:border-blue-200 focus:border-blue-500 transition-all"
+                dir="ltr"
+              />
+              <p className="text-[10px] text-slate-400 pr-2">يمكن لصانع المحتوى إضافة رابط الخطة هنا.</p>
             </div>
 
             <div className="pt-6 space-y-4">

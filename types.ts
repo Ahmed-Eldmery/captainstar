@@ -174,6 +174,7 @@ export interface Task {
   assignedToUserId?: string;
   createdByUserId: string;
   dueDate?: string;
+  planLink?: string;
   createdAt: string;
 }
 

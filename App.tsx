@@ -46,21 +46,41 @@ import ChatPage from './pages/Chat';
 const Layout: React.FC<{ children: React.ReactNode; user: User; onLogout: () => void }> = ({ children, user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(() => parseInt(localStorage.getItem('unread_messages') || '0'));
   const location = useLocation();
 
+  // Listen for new message events from App.tsx
+  useEffect(() => {
+    const handleNewMessage = () => {
+      setUnreadMessages(parseInt(localStorage.getItem('unread_messages') || '0'));
+    };
+    window.addEventListener('newMessage', handleNewMessage);
+    // Also check on mount
+    setUnreadMessages(parseInt(localStorage.getItem('unread_messages') || '0'));
+    return () => window.removeEventListener('newMessage', handleNewMessage);
+  }, []);
+
+  // Clear unread count when navigating to chat
+  useEffect(() => {
+    if (location.pathname === '/chat') {
+      localStorage.setItem('unread_messages', '0');
+      setUnreadMessages(0);
+    }
+  }, [location.pathname]);
+
   const navigation = [
-    { name: 'الرئيسية', href: '/', icon: LayoutDashboard, visible: true },
-    { name: 'الدردشة', href: '/chat', icon: Users, visible: true },
-    { name: 'الكميونتي', href: '/community', icon: MessagesSquare, visible: true },
-    { name: 'الدميري (AI)', href: '/ai-center', icon: Sparkles, visible: true },
-    { name: 'العملاء', href: '/clients', icon: Users, visible: canUserDo(user, 'CREATE_CLIENT') },
-    { name: 'إدارة الفريق', href: '/users', icon: Users2, visible: user.role === Role.ADMIN || user.role === Role.OWNER },
-    { name: 'المشاريع', href: '/projects', icon: FolderKanban, visible: true },
-    { name: 'المهام', href: '/tasks', icon: CheckSquare, visible: true },
-    { name: 'الملفات والويب', href: '/files', icon: Files, visible: true },
-    { name: 'الاعتمادات', href: '/approvals', icon: ThumbsUp, visible: canUserDo(user, 'APPROVE_WORK') },
-    { name: 'التقارير', href: '/reports', icon: BarChart3, visible: canUserDo(user, 'VIEW_REPORTS') },
-    { name: 'السجل', href: '/activity-log', icon: ListTodo, visible: user.role === Role.ADMIN || user.role === Role.OWNER },
+    { name: 'الرئيسية', href: '/', icon: LayoutDashboard, visible: true, badge: 0 },
+    { name: 'الدردشة', href: '/chat', icon: Users, visible: true, badge: unreadMessages },
+    { name: 'الكميونتي', href: '/community', icon: MessagesSquare, visible: true, badge: 0 },
+    { name: 'الدميري (AI)', href: '/ai-center', icon: Sparkles, visible: true, badge: 0 },
+    { name: 'العملاء', href: '/clients', icon: Users, visible: canUserDo(user, 'VIEW_CLIENTS'), badge: 0 },
+    { name: 'إدارة الفريق', href: '/users', icon: Users2, visible: user.role === Role.ADMIN || user.role === Role.OWNER, badge: 0 },
+    { name: 'المشاريع', href: '/projects', icon: FolderKanban, visible: true, badge: 0 },
+    { name: 'المهام', href: '/tasks', icon: CheckSquare, visible: true, badge: 0 },
+    { name: 'الملفات والويب', href: '/files', icon: Files, visible: true, badge: 0 },
+    { name: 'الاعتمادات', href: '/approvals', icon: ThumbsUp, visible: canUserDo(user, 'APPROVE_WORK'), badge: 0 },
+    { name: 'التقارير', href: '/reports', icon: BarChart3, visible: canUserDo(user, 'VIEW_REPORTS'), badge: 0 },
+    { name: 'السجل', href: '/activity-log', icon: ListTodo, visible: user.role === Role.ADMIN || user.role === Role.OWNER, badge: 0 },
   ];
 
   const activePage = navigation.find(item =>
@@ -92,7 +112,7 @@ const Layout: React.FC<{ children: React.ReactNode; user: User; onLogout: () => 
                   key={item.name}
                   to={item.href}
                   className={`
-                    flex items-center space-x-4 space-x-reverse px-5 py-4 rounded-2xl text-sm font-bold transition-all duration-300
+                    flex items-center space-x-4 space-x-reverse px-5 py-4 rounded-2xl text-sm font-bold transition-all duration-300 relative
                     ${activePage?.href === item.href
                       ? 'bg-rose-600 text-white shadow-xl shadow-rose-900/40 scale-[1.02]'
                       : 'text-slate-500 hover:text-white hover:bg-white/5'}
@@ -101,6 +121,11 @@ const Layout: React.FC<{ children: React.ReactNode; user: User; onLogout: () => 
                 >
                   <item.icon className={`w-5 h-5 ${activePage?.href === item.href ? 'text-white' : 'text-slate-500'}`} />
                   <span>{item.name}</span>
+                  {item.badge > 0 && (
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 bg-rose-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                      {item.badge > 9 ? '9+' : item.badge}
+                    </span>
+                  )}
                 </Link>
               )
             ))}
@@ -255,6 +280,12 @@ const App: React.FC = () => {
       fetchAllData();
 
       // --- Realtime Subscriptions ---
+      const playNotificationSound = () => {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        audio.volume = 0.5;
+        audio.play().catch(() => { });
+      };
+
       const subscription = supabase
         .channel('global_changes')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
@@ -262,9 +293,7 @@ const App: React.FC = () => {
             const newTask = payload.new as Task;
             setTasks(prev => [newTask, ...prev]);
             if (String(newTask.assignedToUserId) === String(user.id)) {
-              // Show simple toast (could be improved with a proper Toast component)
-              const audio = new Audio('/notification.mp3'); // Optional sound
-              audio.play().catch(() => { });
+              playNotificationSound();
               alert(`🔔 مهمة جديدة: ${newTask.title}`);
             }
           } else if (payload.eventType === 'UPDATE') {
@@ -278,11 +307,16 @@ const App: React.FC = () => {
           else if (payload.eventType === 'UPDATE') setProjects(prev => prev.map(p => p.id === payload.new.id ? payload.new as Project : p));
           else if (payload.eventType === 'DELETE') setProjects(prev => prev.filter(p => p.id !== payload.old.id));
         })
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
-          const notif = payload.new;
-          if (String(notif.user_id) === String(user.id) || notif.user_id === 'all') {
-            // Trigger UI update or Toast
-            alert(`🔔 ${notif.title}\n${notif.message}`);
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+          const newMsg = payload.new;
+          // If message is for current user
+          if (String(newMsg.receiver_id) === String(user.id)) {
+            playNotificationSound();
+            // Update unread count in localStorage for now (simple approach)
+            const currentCount = parseInt(localStorage.getItem('unread_messages') || '0');
+            localStorage.setItem('unread_messages', String(currentCount + 1));
+            // Trigger window event for components to listen
+            window.dispatchEvent(new CustomEvent('newMessage', { detail: newMsg }));
           }
         })
         .subscribe();
