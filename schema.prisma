@@ -1,0 +1,308 @@
+// =====================
+// CAPTAIN STAR DASHBOARD DATABASE SCHEMA
+// =====================
+// Supabase PostgreSQL Schema
+// Generated for complete system setup
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================
+// 1. USERS TABLE
+// =====================
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  passwordHash  String
+  role          String   // OWNER | ADMIN | ACCOUNT_MANAGER | TEAM_MEMBER
+  teamRole      String   // Arabic team roles
+  isActive      Boolean  @default(true)
+  avatarUrl     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  createdProjects    Project[]      @relation("CreatedBy")
+  createdTasks       Task[]         @relation("CreatedBy")
+  assignedTasks      Task[]         @relation("AssignedTo")
+  communityPosts     CommunityPost[]
+  approvalRequests   Approval[]     @relation("RequestedBy")
+  activityLogs       ActivityLog[]
+
+  @@index([email])
+  @@index([role])
+  @@index([teamRole])
+}
+
+// =====================
+// 2. CLIENTS TABLE
+// =====================
+model Client {
+  id                String   @id @default(cuid())
+  name              String
+  industry          String?
+  country           String
+  packageType       String?
+  phoneNumber       String?
+  postsQuota        Int?
+  videosQuota       Int?
+  hasWebsite        Boolean  @default(false)
+  fileUpload        Boolean  @default(false)
+  numCampaigns      Int      @default(0)
+  numPlatforms      Int      @default(0)
+  coverImage        String?
+  hasCampaign       Boolean  @default(false)
+  campaigns         Json?    // Array of campaign objects
+  onboardingNotes   String?
+  assignedTeamIds   String[] @default([])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  accounts          ClientAccount[]
+  projects          Project[]
+  tasks             Task[]
+  approvals         Approval[]
+  performance       PerformanceSnapshot[]
+
+  @@index([name])
+  @@index([country])
+  @@index([industry])
+}
+
+// =====================
+// 3. CLIENT ACCOUNTS TABLE
+// =====================
+model ClientAccount {
+  id            String   @id @default(cuid())
+  clientId      String
+  platform      String   // Facebook, Instagram, LinkedIn, TikTok, etc.
+  accountName   String
+  accountUrl    String?
+  username      String?
+  notes         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([platform])
+  @@unique([clientId, platform])
+}
+
+// =====================
+// 4. PROJECTS TABLE
+// =====================
+model Project {
+  id                  String   @id @default(cuid())
+  clientId            String
+  name                String
+  status              String   // مخطط له | قيد التنفيذ | متوقف مؤقتاً | مكتمل | ملغي
+  type                String?
+  description         String?
+  niche               String?
+  website             Json?    // { link, username, password, type }
+  receivedDate        String?
+  brief               String?
+  totalBudget         Float?
+  platforms           String[] @default([])
+  campaignTypes       String[] @default([])
+  accounts            Json?    // Array of account objects
+  driveLink           String?
+  productSheetLink    String?
+  copyAndDesign       String?
+  motion              String?
+  campaignDetails     Json?    // { startDate, endDate, notes }
+  monthlyReport       String?
+  clientStatus        String?
+  startDate           String?
+  endDate             String?
+  objective           String?
+  createdByUserId     String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  client              Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdByUser       User     @relation("CreatedBy", fields: [createdByUserId], references: [id])
+  tasks               Task[]
+
+  @@index([clientId])
+  @@index([createdByUserId])
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+// =====================
+// 5. TASKS TABLE
+// =====================
+model Task {
+  id                  String   @id @default(cuid())
+  clientId            String
+  projectId           String?
+  title               String
+  description         String?
+  status              String   // الانتظار | للتنفيذ | قيد العمل | انتظار العميل | بانتظار الاعتماد | مكتمل | ملغي
+  priority            String   // منخفضة | متوسطة | عالية | حرجة
+  type                String   // محتوى | تصميم | فيديو | ميديا باير | برمجة | سيو | مبيعات | إدارة منصات | واجهات | أخرى
+  assignedToUserId    String?
+  createdByUserId     String
+  dueDate             String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  client              Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project             Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  assignedToUser      User?    @relation("AssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  createdByUser       User     @relation("CreatedBy", fields: [createdByUserId], references: [id])
+  approvals           Approval[]
+
+  @@index([clientId])
+  @@index([projectId])
+  @@index([assignedToUserId])
+  @@index([createdByUserId])
+  @@index([status])
+  @@index([priority])
+  @@index([dueDate])
+}
+
+// =====================
+// 6. APPROVALS TABLE
+// =====================
+model Approval {
+  id                    String   @id @default(cuid())
+  taskId                String
+  clientId              String
+  requestedByUserId     String
+  status                String   // PENDING_INTERNAL | PENDING_CLIENT | APPROVED | CHANGES_REQUESTED
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  task                  Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  client                Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requestedByUser       User     @relation("RequestedBy", fields: [requestedByUserId], references: [id])
+
+  @@index([taskId])
+  @@index([clientId])
+  @@index([requestedByUserId])
+  @@index([status])
+}
+
+// =====================
+// 7. PERFORMANCE SNAPSHOTS TABLE
+// =====================
+model PerformanceSnapshot {
+  id                String   @id @default(cuid())
+  clientId          String
+  campaignName      String
+  platform          String
+  date              String
+  spend             Float    @default(0)
+  impressions       Int      @default(0)
+  clicks            Int      @default(0)
+  leads             Int      @default(0)
+  conversions       Int      @default(0)
+  startDate         String
+  endDate           String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([platform])
+  @@index([date])
+}
+
+// =====================
+// 8. COMMUNITY POSTS TABLE
+// =====================
+model CommunityPost {
+  id                String   @id @default(cuid())
+  userId            String
+  department        String
+  content           String   @db.Text
+  type              String   // announcement | discussion | help
+  likes             Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([department])
+}
+
+// =====================
+// 9. ACTIVITY LOGS TABLE
+// =====================
+model ActivityLog {
+  id                String   @id @default(cuid())
+  userId            String
+  action            String
+  entityType        String   // Client | Project | Task | Post | Approval
+  entityId          String
+  createdAt         DateTime @default(now())
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+// =====================
+// 10. FILE ASSETS TABLE
+// =====================
+model FileAsset {
+  id                String   @id @default(cuid())
+  name              String
+  type              String   // image | video | document | other
+  client            String
+  size              String
+  date              String
+  url               String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([client])
+  @@index([type])
+}
+
+// =====================
+// DATABASE VIEWS & INDEXES
+// =====================
+
+// Views for common queries (optional, can be implemented in application)
+// view ClientStatistics as
+// SELECT 
+//   c.id,
+//   c.name,
+//   COUNT(DISTINCT p.id) as project_count,
+//   COUNT(DISTINCT t.id) as task_count,
+//   COUNT(DISTINCT ca.id) as account_count,
+//   MAX(ps.spend) as total_spend
+// FROM clients c
+// LEFT JOIN projects p ON c.id = p.client_id
+// LEFT JOIN tasks t ON c.id = t.client_id
+// LEFT JOIN client_accounts ca ON c.id = ca.client_id
+// LEFT JOIN performance_snapshots ps ON c.id = ps.client_id
+// GROUP BY c.id, c.name

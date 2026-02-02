@@ -1,0 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Arabic:wght@400;700&display=swap');
+
+.font-ibm-plex-arabic, body, html {
+  font-family: 'IBM Plex Arabic', Tahoma, Arial, sans-serif !important;
+}
