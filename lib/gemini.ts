@@ -1,13 +1,37 @@
 // Initialize Gemini API
-// Note: This requires VITE_GEMINI_API_KEY to be set in .env
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+// Priority: 1. Global DB Key (cached in localStorage), 2. localStorage, 3. env variable
+import { supabase } from './supabase';
+
+// Get API key with priority: DB global key > localStorage > env
+const getApiKey = async (): Promise<string> => {
+    // First try localStorage (might be synced from DB)
+    const storedKey = localStorage.getItem('gemini_api_key');
+    if (storedKey) return storedKey;
+
+    // Try to fetch from database
+    try {
+        const { data } = await supabase.from('agency_settings').select('value').eq('key', 'gemini_api_key').single();
+        if (data?.value) {
+            // Cache in localStorage for faster subsequent requests
+            localStorage.setItem('gemini_api_key', data.value);
+            return data.value;
+        }
+    } catch (e) {
+        console.log('No global API key found in database');
+    }
+
+    // Fallback to env variable
+    return import.meta.env.VITE_GEMINI_API_KEY || '';
+};
 
 export const generateAIResponse = async (
     message: string,
     history: { role: 'user' | 'model'; parts: { text: string }[] }[] = []
 ): Promise<string> => {
+    const API_KEY = await getApiKey();
+
     if (!API_KEY) {
-        return 'عذراً، لم يتم إعداد مفتاح API الخاص بالذكاء الاصطناعي. يرجى التأكد من إعداد VITE_GEMINI_API_KEY في ملف .env';
+        return 'عذراً، لم يتم إعداد مفتاح API الخاص بالذكاء الاصطناعي. يرجى الاتصال بالمسؤول لإعداد المفتاح العام.';
     }
 
     try {
@@ -52,3 +76,4 @@ export const generateAIResponse = async (
         return 'عذراً، حدث خطأ أثناء الاتصال بالذكاء الاصطناعي. يرجى المحاولة مرة أخرى لاحقاً.';
     }
 };
+
