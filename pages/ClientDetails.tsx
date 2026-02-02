@@ -22,6 +22,12 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ user, clients, projects, 
   const [activeTab, setActiveTab] = useState('overview');
   const [isAddAccountModalOpen, setIsAddAccountModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [editingAccessData, setEditingAccessData] = useState<{
+    accessEmail?: string;
+    accessPassword?: string;
+    notes?: string;
+  }>({});
 
   const client = useMemo(() => clients.find(c => c.id === id), [id, clients]);
   const clientProjects = useMemo(() => projects.filter(p => p.clientId === id), [id, projects]);
@@ -58,6 +64,24 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ user, clients, projects, 
 
   const handleDeleteAccount = (accountId: string) => {
     setAccounts(accounts.filter(a => a.id !== accountId));
+  };
+
+  const handleSaveAccessData = async (accountId: string) => {
+    const updatedAccounts = accounts.map(a => {
+      if (a.id === accountId) {
+        return {
+          ...a,
+          accessEmail: editingAccessData.accessEmail || a.accessEmail,
+          accessPassword: editingAccessData.accessPassword || a.accessPassword,
+          notes: editingAccessData.notes || a.notes
+        };
+      }
+      return a;
+    });
+    setAccounts(updatedAccounts);
+    // TODO: Save to database via db.update
+    setEditingAccountId(null);
+    setEditingAccessData({});
   };
 
   const handleCopyUsername = (username: string, accountId: string) => {
@@ -530,53 +554,117 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ user, clients, projects, 
                         <span className={`px-4 py-2 rounded-full text-xs font-black ${account.isActive ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
                           {account.isActive ? 'نشط' : 'غير نشط'}
                         </span>
+                        <button
+                          onClick={() => {
+                            if (editingAccountId === account.id) {
+                              setEditingAccountId(null);
+                              setEditingAccessData({});
+                            } else {
+                              setEditingAccountId(account.id);
+                              setEditingAccessData({
+                                accessEmail: account.accessEmail || '',
+                                accessPassword: account.accessPassword || '',
+                                notes: account.notes || ''
+                              });
+                            }
+                          }}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700 transition-all"
+                        >
+                          {editingAccountId === account.id ? 'إلغاء' : 'تعديل البيانات'}
+                        </button>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="p-4 bg-white rounded-xl border border-slate-200">
-                          <p className="text-xs font-black text-slate-400 uppercase mb-2">اسم المستخدم</p>
-                          <p className="text-lg font-black text-slate-900 flex items-center gap-2">
-                            @{account.username || 'غير محدد'}
-                            {account.username && (
-                              <button
-                                onClick={() => handleCopyUsername(account.username || '', account.id)}
-                                className="p-1 hover:bg-slate-100 rounded-lg transition-all"
-                              >
-                                {copiedId === account.id ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-400" />}
-                              </button>
-                            )}
-                          </p>
+                      {/* Editing Form */}
+                      {editingAccountId === account.id ? (
+                        <div className="space-y-4 p-6 bg-blue-50 rounded-2xl border-2 border-blue-200">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <label className="text-xs font-black text-slate-700 uppercase">البريد الإلكتروني</label>
+                              <input
+                                type="email"
+                                value={editingAccessData.accessEmail || ''}
+                                onChange={e => setEditingAccessData({ ...editingAccessData, accessEmail: e.target.value })}
+                                className="w-full bg-white border-2 border-slate-200 focus:border-blue-500 rounded-xl py-3 px-4 font-bold outline-none"
+                                placeholder="email@example.com"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-black text-slate-700 uppercase">كلمة المرور</label>
+                              <input
+                                type="text"
+                                value={editingAccessData.accessPassword || ''}
+                                onChange={e => setEditingAccessData({ ...editingAccessData, accessPassword: e.target.value })}
+                                className="w-full bg-white border-2 border-slate-200 focus:border-blue-500 rounded-xl py-3 px-4 font-bold outline-none"
+                                placeholder="كلمة المرور"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-black text-slate-700 uppercase">ملاحظات</label>
+                            <textarea
+                              value={editingAccessData.notes || ''}
+                              onChange={e => setEditingAccessData({ ...editingAccessData, notes: e.target.value })}
+                              className="w-full bg-white border-2 border-slate-200 focus:border-blue-500 rounded-xl py-3 px-4 font-bold outline-none resize-none"
+                              rows={2}
+                              placeholder="ملاحظات إضافية..."
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleSaveAccessData(account.id)}
+                            className="w-full py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-black rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                          >
+                            <Check className="w-5 h-5" /> حفظ البيانات
+                          </button>
                         </div>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="p-4 bg-white rounded-xl border border-slate-200">
+                              <p className="text-xs font-black text-slate-400 uppercase mb-2">اسم المستخدم</p>
+                              <p className="text-lg font-black text-slate-900 flex items-center gap-2">
+                                @{account.username || 'غير محدد'}
+                                {account.username && (
+                                  <button
+                                    onClick={() => handleCopyUsername(account.username || '', account.id)}
+                                    className="p-1 hover:bg-slate-100 rounded-lg transition-all"
+                                  >
+                                    {copiedId === account.id ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-400" />}
+                                  </button>
+                                )}
+                              </p>
+                            </div>
 
-                        <div className="p-4 bg-white rounded-xl border border-slate-200">
-                          <p className="text-xs font-black text-slate-400 uppercase mb-2">البريد الإلكتروني</p>
-                          <p className="text-lg font-black text-slate-900">{account.accessEmail || 'غير محدد'}</p>
-                        </div>
+                            <div className="p-4 bg-white rounded-xl border border-slate-200">
+                              <p className="text-xs font-black text-slate-400 uppercase mb-2">البريد الإلكتروني</p>
+                              <p className="text-lg font-black text-slate-900">{account.accessEmail || 'غير محدد'}</p>
+                            </div>
 
-                        <div className="p-4 bg-white rounded-xl border border-slate-200">
-                          <p className="text-xs font-black text-slate-400 uppercase mb-2">كلمة المرور</p>
-                          <p className="text-lg font-black text-slate-900 font-mono tracking-wider">
-                            {account.accessPassword ? '••••••••' : 'غير محدد'}
-                          </p>
-                        </div>
+                            <div className="p-4 bg-white rounded-xl border border-slate-200">
+                              <p className="text-xs font-black text-slate-400 uppercase mb-2">كلمة المرور</p>
+                              <p className="text-lg font-black text-slate-900 font-mono tracking-wider">
+                                {account.accessPassword || 'غير محدد'}
+                              </p>
+                            </div>
 
-                        <div className="p-4 bg-white rounded-xl border border-slate-200">
-                          <p className="text-xs font-black text-slate-400 uppercase mb-2">رابط الحساب</p>
-                          {account.accountUrl ? (
-                            <a href={account.accountUrl} target="_blank" rel="noopener noreferrer" className="text-lg font-black text-blue-600 hover:underline">
-                              فتح الحساب ↗
-                            </a>
-                          ) : (
-                            <p className="text-lg font-black text-slate-400">غير محدد</p>
+                            <div className="p-4 bg-white rounded-xl border border-slate-200">
+                              <p className="text-xs font-black text-slate-400 uppercase mb-2">رابط الحساب</p>
+                              {account.accountUrl ? (
+                                <a href={account.accountUrl} target="_blank" rel="noopener noreferrer" className="text-lg font-black text-blue-600 hover:underline">
+                                  فتح الحساب ↗
+                                </a>
+                              ) : (
+                                <p className="text-lg font-black text-slate-400">غير محدد</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {account.notes && (
+                            <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
+                              <p className="text-xs font-black text-amber-700 uppercase mb-2">ملاحظات</p>
+                              <p className="text-sm font-bold text-slate-700">{account.notes}</p>
+                            </div>
                           )}
-                        </div>
-                      </div>
-
-                      {account.notes && (
-                        <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
-                          <p className="text-xs font-black text-amber-700 uppercase mb-2">ملاحظات</p>
-                          <p className="text-sm font-bold text-slate-700">{account.notes}</p>
-                        </div>
+                        </>
                       )}
                     </div>
                   ))}
