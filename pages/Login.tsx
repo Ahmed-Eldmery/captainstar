@@ -5,8 +5,8 @@ import { User } from '../types';
 import { supabase } from '../lib/supabase.ts';
 
 const Login: React.FC<{ onLogin: (user: User) => void }> = ({ onLogin }) => {
-  const [email, setEmail] = useState('admin@captainstar.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 

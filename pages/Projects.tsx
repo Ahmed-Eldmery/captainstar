@@ -92,7 +92,7 @@ const Projects: React.FC<ProjectsProps> = ({ user, projects, setProjects, client
 
     try {
       await db.insert('projects', projectToAdd);
-      await db.logActivity(user.id, 'إنشاء مشروع جديد', 'projects', projectToAdd.id);
+      await db.logActivity(user.id, `إنشاء مشروع: ${projectToAdd.name}`, 'projects', projectToAdd.id);
       setProjects([projectToAdd, ...projects]);
       setIsModalOpen(false);
       setCurrentStep(1);
@@ -317,8 +317,8 @@ const Projects: React.FC<ProjectsProps> = ({ user, projects, setProjects, client
                             });
                           }}
                           className={`p-3 rounded-xl font-bold text-sm transition-all border-2 ${(newProject.platforms || []).includes(platform)
-                              ? 'bg-rose-100 border-rose-300 text-rose-600'
-                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-rose-200'
+                            ? 'bg-rose-100 border-rose-300 text-rose-600'
+                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-rose-200'
                             }`}
                         >
                           {platform}
@@ -343,8 +343,8 @@ const Projects: React.FC<ProjectsProps> = ({ user, projects, setProjects, client
                             });
                           }}
                           className={`p-3 rounded-xl font-bold text-sm transition-all border-2 ${(newProject.campaignTypes || []).includes(type)
-                              ? 'bg-blue-100 border-blue-300 text-blue-600'
-                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-blue-200'
+                            ? 'bg-blue-100 border-blue-300 text-blue-600'
+                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-blue-200'
                             }`}
                         >
                           {type}

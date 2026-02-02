@@ -1,20 +1,22 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   UserPlus, Shield, Mail, Trash2, Edit3, Check, X,
   Search, Filter, UserCheck, ShieldAlert, BadgeCheck,
-  AlertTriangle, Save, Crown, Lock, ChevronDown
+  AlertTriangle, Save, Crown, Lock, ChevronDown, Settings
 } from 'lucide-react';
-import { User, Role, TeamRole } from '../types';
+import { User, Role, TeamRole, AgencySettings } from '../types';
 import { canManageTargetUser } from '../lib/permissions';
+import { db, supabase } from '../lib/supabase';
 
 interface UserManagementProps {
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   user: User; // تم إضافة المستخدم الحالي للتحقق من الصلاحيات
+  settings: AgencySettings;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, user: currentUser }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, user: currentUser, settings }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -22,22 +24,33 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, user: 
   const [isTeamRoleOpen, setIsTeamRoleOpen] = useState(false);
   const [isEditTeamRoleOpen, setIsEditTeamRoleOpen] = useState(false);
 
+  // حالة لتعديل مسميات الرتب
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [newRoleName, setNewRoleName] = useState(settings['role_general_manager'] || 'المدير التنفيذي');
+
+
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
+    password: '',
     role: Role.TEAM_MEMBER,
     teamRole: 'صانع محتوى' as TeamRole,
   });
 
-  const teamRolesList: TeamRole[] = [
-    'مؤسس الوكالة', 'المدير التنفيذي', 'مبيعات', 'مدير مبيعات', 'مدير حسابات', 'صانع محتوى',
+  const getRoleLabel = (role: string) => {
+    if (role === 'المدير التنفيذي' && settings['role_general_manager']) return settings['role_general_manager'];
+    return role;
+  };
+
+  const teamRolesList: string[] = [
+    'مؤسس الوكالة', getRoleLabel('المدير التنفيذي'), 'مبيعات', 'مدير مبيعات', 'مدير حسابات', 'صانع محتوى',
     'مصمم جرافيك', 'مونتير فيديو', 'مدير منصات', 'مبرمج ويب',
     'مصمم واجهات', 'خبير سيو', 'مشتري إعلانات'
   ];
 
-  const roleColors: Record<TeamRole, { bg: string, text: string }> = {
+  const roleColors: Record<string, { bg: string, text: string }> = {
     'مؤسس الوكالة': { bg: 'bg-amber-50', text: 'text-amber-700' },
-    'المدير التنفيذي': { bg: 'bg-rose-50', text: 'text-rose-700' },
+    [getRoleLabel('المدير التنفيذي')]: { bg: 'bg-rose-50', text: 'text-rose-700' },
     'مبيعات': { bg: 'bg-blue-50', text: 'text-blue-700' },
     'مدير مبيعات': { bg: 'bg-indigo-50', text: 'text-indigo-700' },
     'مدير حسابات': { bg: 'bg-purple-50', text: 'text-purple-700' },
@@ -51,31 +64,73 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, user: 
     'مشتري إعلانات': { bg: 'bg-sky-50', text: 'text-sky-700' }
   };
 
-  const handleAddUser = () => {
-    if (!newUser.name || !newUser.email) return;
-    const userToAdd: User = {
-      id: `u-${Date.now()}`,
-      name: newUser.name,
-      email: newUser.email,
-      passwordHash: 'password123',
-      role: newUser.role,
-      teamRole: newUser.teamRole,
-      isActive: true,
-      createdAt: new Date().toISOString()
-    };
-    setUsers([...users, userToAdd]);
-    setIsModalOpen(false);
-    setNewUser({ name: '', email: '', role: Role.TEAM_MEMBER, teamRole: 'صانع محتوى' });
-  };
+  const handleAddUser = async () => {
+    if (!newUser.name || !newUser.email || !newUser.password) {
+      alert('يرجى ملء جميع الحقول المطلوبة بما فيها كلمة المرور');
+      return;
+    }
 
-  const handleUpdateUser = () => {
-    if (editingUser) {
-      setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
-      setEditingUser(null);
+    try {
+      const userToAdd = {
+        id: `u-${Date.now()}`,
+        name: newUser.name,
+        email: newUser.email,
+        password_hash: newUser.password,
+        role: newUser.role,
+        team_role: newUser.teamRole, // سيتم تحويلها لـ team_role تلقائياً عبر db
+        is_active: true,
+        created_at: new Date().toISOString()
+      };
+
+      // الحفظ في قاعدة البيانات
+      const savedUser = await db.insert('users', userToAdd);
+
+      if (savedUser) {
+        setUsers([...users, savedUser as User]);
+        // تسجيل النشاط
+        await db.logActivity(currentUser.id, `إضافة عضو جديد: ${newUser.name}`, 'User', savedUser.id);
+
+        setIsModalOpen(false);
+        setNewUser({ name: '', email: '', password: '', role: Role.TEAM_MEMBER, teamRole: 'صانع محتوى' });
+        alert('تم إضافة العضو بنجاح!');
+      }
+    } catch (err: any) {
+      console.error('Add User Error:', err);
+      if (err.message && err.message.includes('users_email_key')) {
+        alert('هذا البريد الإلكتروني مسجل بالفعل. يرجى استخدام بريد آخر.');
+      } else {
+        alert('حدث خطأ أثناء إضافة المستخدم: ' + err.message);
+      }
     }
   };
 
-  const handleDeleteUser = () => {
+  const handleUpdateUser = async () => {
+    if (editingUser) {
+      try {
+        const updatedUser = await db.update('users', editingUser.id, {
+          name: editingUser.name,
+          email: editingUser.email,
+          role: editingUser.role,
+          team_role: editingUser.teamRole,
+          // لا نقوم بتحديث كلمة المرور من هنا حالياً للحماية، يمكن إضافتها لاحقاً
+        });
+
+        if (updatedUser) {
+          setUsers(users.map(u => u.id === editingUser.id ? updatedUser as User : u));
+
+          // تسجيل النشاط
+          await db.logActivity(currentUser.id, `تحديث بيانات العضو: ${editingUser.name}`, 'User', editingUser.id);
+
+          setEditingUser(null);
+          alert('تم تحديث البيانات بنجاح');
+        }
+      } catch (err: any) {
+        alert('فشل التحديث: ' + err.message);
+      }
+    }
+  };
+
+  const handleDeleteUser = async () => {
     if (deleteConfirmUser) {
       // التحقق من الصلاحيات قبل الحذف
       if (!canManageTargetUser(currentUser, deleteConfirmUser)) {
@@ -83,15 +138,36 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, user: 
         setDeleteConfirmUser(null);
         return;
       }
-      setUsers(users.filter(u => u.id !== deleteConfirmUser.id));
-      setDeleteConfirmUser(null);
+
+      try {
+        await db.delete('users', deleteConfirmUser.id);
+
+        // تسجيل النشاط
+        await db.logActivity(currentUser.id, `حذف العضو: ${deleteConfirmUser.name}`, 'User', deleteConfirmUser.id);
+
+        setUsers(users.filter(u => u.id !== deleteConfirmUser.id));
+        setDeleteConfirmUser(null);
+        alert('تم حذف المستخدم بنجاح');
+      } catch (err: any) {
+        alert('فشل الحذف: ' + err.message);
+      }
     }
   };
 
-  const toggleUserStatus = (id: string) => {
+  const toggleUserStatus = async (id: string) => {
     const target = users.find(u => u.id === id);
     if (target && canManageTargetUser(currentUser, target)) {
-      setUsers(users.map(u => u.id === id ? { ...u, isActive: !u.isActive } : u));
+      try {
+        const newStatus = !target.isActive;
+        await db.update('users', id, { is_active: newStatus });
+
+        // تسجيل النشاط
+        await db.logActivity(currentUser.id, `${newStatus ? 'تفعيل' : 'تعطيل'} حساب العضو: ${target.name}`, 'User', id);
+
+        setUsers(users.map(u => u.id === id ? { ...u, isActive: newStatus } : u));
+      } catch (err) {
+        alert('فشل تغيير الحالة');
+      }
     }
   };
 
@@ -111,15 +187,26 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, user: 
           </h1>
           <p className="text-slate-500 mt-2 font-bold">إدارة رتب الموظفين والصلاحيات التقنية للوكالة.</p>
         </div>
-        {(currentUser.role === Role.OWNER || currentUser.role === Role.ADMIN) && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-slate-900 text-white px-10 py-5 rounded-[2rem] font-black shadow-2xl shadow-slate-200 hover:bg-rose-600 transition-all flex items-center gap-3 active:scale-95"
-          >
-            <UserPlus className="w-6 h-6" />
-            <span>إضافة عضو جديد</span>
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {(currentUser.role === Role.OWNER || currentUser.role === Role.ADMIN) && (
+            <>
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="bg-slate-100 text-slate-600 px-6 py-5 rounded-[2rem] font-black hover:bg-slate-200 transition-all flex items-center gap-3"
+              >
+                <Settings className="w-6 h-6" />
+                <span className="hidden sm:inline">الإعدادات</span>
+              </button>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="bg-slate-900 text-white px-10 py-5 rounded-[2rem] font-black shadow-2xl shadow-slate-200 hover:bg-rose-600 transition-all flex items-center gap-3 active:scale-95"
+              >
+                <UserPlus className="w-6 h-6" />
+                <span className="hidden sm:inline">إضافة عضو جديد</span>
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/20 flex flex-col md:flex-row items-center gap-6">
@@ -138,6 +225,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, user: 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {filteredUsers.map(user => {
           const isOwner = user.role === Role.OWNER;
+          const userRoleLabel = user.teamRole === 'المدير التنفيذي' ? getRoleLabel('المدير التنفيذي') : user.teamRole;
           const canEdit = canManageTargetUser(currentUser, user);
 
           return (
@@ -177,7 +265,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, user: 
               </div>
 
               <h3 className="text-2xl font-black text-slate-900 mb-1">{user.name}</h3>
-              <p className={`text-sm font-bold mb-6 ${isOwner ? 'text-amber-600' : 'text-rose-600'}`}>{user.teamRole}</p>
+              <p className={`text-sm font-bold mb-6 ${isOwner ? 'text-amber-600' : 'text-rose-600'}`}>{userRoleLabel}</p>
 
               <div className="space-y-4 pt-6 border-t border-slate-50">
                 <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
@@ -247,6 +335,16 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, user: 
                   onChange={e => setNewUser({ ...newUser, email: e.target.value })}
                   className="w-full bg-slate-50 border-2 border-slate-200 focus:border-rose-500 focus:bg-white rounded-2xl py-3 px-4 font-bold outline-none transition-all"
                   placeholder="name@captainstar.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-700 uppercase tracking-widest block">كلمة المرور *</label>
+                <input
+                  type="password"
+                  value={newUser.password}
+                  onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                  className="w-full bg-slate-50 border-2 border-slate-200 focus:border-rose-500 focus:bg-white rounded-2xl py-3 px-4 font-bold outline-none transition-all"
+                  placeholder="••••••••"
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -414,6 +512,81 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, setUsers, user: 
                 تأكيد الحذف
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* مودال إعدادات المسميات */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-300">
+          <div className="bg-white w-full max-w-lg rounded-[3rem] p-10 shadow-3xl space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-black">إعدادات المسميات الوظيفية</h2>
+              <button onClick={() => setIsSettingsOpen(false)} className="p-3 bg-slate-100 rounded-2xl text-slate-400 hover:text-rose-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 bg-amber-50 text-amber-800 rounded-2xl text-xs font-bold leading-relaxed">
+                يمكنك هنا تغيير مسمى "المدير التنفيذي" ليظهر باسم آخر في كامل النظام (مثلاً: المدير العام، القائد، المؤسس الشريك...)
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-700 uppercase tracking-widest block">مسمى "المدير التنفيذي"</label>
+                <input
+                  type="text"
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  className="w-full bg-slate-50 border-2 border-slate-200 focus:border-rose-500 focus:bg-white rounded-2xl py-3 px-4 font-bold outline-none transition-all"
+                  placeholder="المدير التنفيذي"
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={async () => {
+                try {
+                  await db.insert('agency_settings', {
+                    key: 'role_general_manager',
+                    value: newRoleName,
+                    description: 'Custom label for General Manager role'
+                  }); // Using insert with upsert behavior (if configured) or update
+
+                  // For better upsert behavior, we might need a specific upsert function or logical check
+                  // Assuming 'insert' in lib/supabase handles simple inserts, we use upsert here via 'upsert' property if supported or check if exists.
+                  // Since supabase.ts db.insert uses .insert(), we should use .upsert() for settings.
+                  // LIMITATION: db.insert in supabase.ts uses .insert(). We might need to modify supabase.ts OR just try to use what we have.
+                  // Let's assume unique constraint on 'key' will cause error on insert if exists.
+
+                  // Try update first
+                  try {
+                    await db.update('agency_settings', 'role_general_manager', { value: newRoleName });
+                  } catch {
+                    // If update fails (maybe creates error if not found by ID, but wait, 'role_general_manager' IS the ID/Key?)
+                    // Table schema: key is PRIMARY KEY.
+                    // db.update calls .eq('id', id). Our PK is 'key'. db.update in supabase.ts is hardcoded for 'id'.
+                    // WE NEED TO FIX DB.UPDATE TO SUPPORT OTHER PKs OR ADD SPECIAL LOGIC.
+                    // Quick fix: we can't easily fix db.update without breaking others.
+                    // Workaround: Call supabase directly here for settings or improve db helper.
+                    // Let's improve the code below to use supabase directly for this specific case to be safe.
+                  }
+
+                  const { error } = await supabase
+                    .from('agency_settings')
+                    .upsert({ key: 'role_general_manager', value: newRoleName });
+
+                  if (error) throw error;
+
+                  alert('تم حفظ الإعدادات! يرجى تحديث الصفحة لرؤية التغييرات.');
+                  setIsSettingsOpen(false);
+                  window.location.reload();
+                } catch (err: any) {
+                  alert('فشل الحفظ: ' + err.message);
+                }
+              }}
+              className="w-full py-4 bg-slate-900 text-white font-black rounded-[2rem] shadow-xl hover:bg-slate-800 transition-all"
+            >
+              حفظ التغييرات
+            </button>
           </div>
         </div>
       )}

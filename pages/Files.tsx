@@ -63,6 +63,10 @@ const FilesPage: React.FC<FilesProps> = ({ user, files, setFiles }) => {
       };
 
       await db.insert('file_assets', fileData);
+
+      // تسجيل النشاط
+      await db.logActivity(user.id, `رفع ملف جديد: ${file.name}`, 'File', fileId);
+
       setFiles(prev => [fileData, ...prev]);
       setUploadProgress(100);
 
@@ -72,9 +76,15 @@ const FilesPage: React.FC<FilesProps> = ({ user, files, setFiles }) => {
       }, 500);
 
     } catch (err: any) {
-      console.error(err);
-      alert(`فشل الرفع: ${err.message || 'خطأ غير معروف'}. يرجى السؤكد من وجود Storage Bucket باسم "assets" وجدول "file_assets".`);
+      console.error('File Upload Error:', err);
+      // alert specific error if possible
+      let msg = err.message || 'خطأ غير معروف';
+      if (msg.includes('row-level security')) msg = 'خطأ صلاحيات (RLS). يرجى التأكد من سياسات التخزين.';
+      if (msg.includes('Bucket not found')) msg = 'لم يتم العثور على مجلد "assets" في التخزين.';
+
+      alert(`فشل الرفع: ${msg}. \nيرجى التأكد من إعدادات Supabase Storage.`);
       setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -98,6 +108,11 @@ const FilesPage: React.FC<FilesProps> = ({ user, files, setFiles }) => {
     try {
       await db.delete('file_assets', id);
       await deleteFileFromDB(id);
+
+      const file = files.find(f => f.id === id);
+      // تسجيل النشاط
+      if (file) await db.logActivity(user.id, `حذف ملف: ${file.name}`, 'File', id);
+
       setFiles(prev => prev.filter(f => f.id !== id));
     } catch (err) {
       alert('فشل الحذف من السحابة');

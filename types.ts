@@ -229,3 +229,7 @@ export interface CommunityPost {
   likes: number;
   createdAt: string;
 }
+
+export interface AgencySettings {
+  [key: string]: string;
+}

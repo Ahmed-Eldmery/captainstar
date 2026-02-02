@@ -58,7 +58,7 @@ const Tasks: React.FC<TasksPageProps> = ({ user, users, tasks, setTasks, clients
     };
     try {
       await db.insert('tasks', taskToAdd);
-      await db.logActivity(user.id, 'إنشاء مهمة جديدة', 'tasks', taskToAdd.id);
+      await db.logActivity(user.id, `إنشاء مهمة: ${taskToAdd.title}`, 'tasks', taskToAdd.id);
       setTasks([taskToAdd, ...tasks]);
       setIsModalOpen(false);
       setNewTask({

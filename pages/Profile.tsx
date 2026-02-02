@@ -2,9 +2,11 @@
 import React, { useState, useRef, useMemo } from 'react';
 import {
    Camera, Shield, User as UserIcon, Mail, Key, CheckCircle2, Save,
-   Database, Download, Upload as UploadIcon, Zap, Bell, Check
+   Database, Download, Upload as UploadIcon, Zap, Bell, Check, RefreshCw
 } from 'lucide-react';
 import { User } from '../types';
+import { db } from '../lib/supabase';
+import { USERS, CLIENTS, PROJECTS, TASKS, APPROVALS, ACTIVITY_LOGS, CLIENT_ACCOUNTS, PERFORMANCE } from '../mockData';
 
 interface ProfileProps {
    user: User;
@@ -27,6 +29,8 @@ const Profile: React.FC<ProfileProps> = ({ user, users, setUsers, onUpdate, expo
    const fileInputRef = useRef<HTMLInputElement>(null);
    const dbInputRef = useRef<HTMLInputElement>(null);
 
+   const [isRestoring, setIsRestoring] = useState(false);
+
    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
@@ -36,6 +40,42 @@ const Profile: React.FC<ProfileProps> = ({ user, users, setUsers, onUpdate, expo
             setFormData(prev => ({ ...prev, avatarUrl: base64 }));
          };
          reader.readAsDataURL(file);
+      }
+   };
+
+   const handleRestoreData = async () => {
+      if (!confirm('هل تريد استعادة البيانات الافتراضية؟ سيتم إضافة بيانات تجريبية لقاعدة البيانات.')) return;
+      setIsRestoring(true);
+      try {
+         // Seed Users
+         for (const u of USERS) {
+            await db.insert('users', { ...u, password_hash: u.passwordHash, team_role: u.teamRole, is_active: u.isActive, created_at: u.createdAt }).catch(() => { });
+         }
+         // Seed Clients
+         for (const c of CLIENTS) {
+            const { campaigns, ...clientData } = c;
+            await db.insert('clients', { ...clientData, posts_quota: c.postsQuota, videos_quota: c.videosQuota, created_at: c.createdAt }).catch(() => { });
+            // We skip detailed campaigns for now to avoid complexity or loop properly
+         }
+         // Seed Projects
+         for (const p of PROJECTS) {
+            await db.insert('projects', { ...p, total_budget: p.totalBudget, created_by: p.createdByUserId, created_at: p.createdAt }).catch(() => { });
+         }
+         // Seed Tasks
+         for (const t of TASKS) {
+            await db.insert('tasks', { ...t, assigned_to: t.assignedToUserId, created_by: t.createdByUserId, created_at: t.createdAt }).catch(() => { });
+         }
+         // Seed Accounts
+         for (const a of CLIENT_ACCOUNTS) {
+            await db.insert('client_accounts', { ...a, client_id: a.clientId, account_name: a.accountName, is_active: a.isActive }).catch(() => { });
+         }
+
+         alert('تم استعادة البيانات بنجاح! يرجى تحديث الصفحة.');
+         window.location.reload();
+      } catch (err: any) {
+         alert('حدث خطأ أثناء الاستعادة: ' + err.message);
+      } finally {
+         setIsRestoring(false);
       }
    };
 
@@ -158,7 +198,7 @@ const Profile: React.FC<ProfileProps> = ({ user, users, setUsers, onUpdate, expo
                   <p className="text-sm font-bold text-slate-500 leading-relaxed">
                      هذه النسخة تحفظ البيانات في متصفحك. يمكنك تحميل نسخة احتياطية من كافة العملاء، المهام، والمنشورات ونقلها لجهاز آخر.
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                      <button
                         onClick={exportDatabase}
                         className="p-6 border-2 border-slate-100 rounded-3xl hover:border-rose-200 hover:bg-rose-50 transition-all flex flex-col items-center gap-3 group"
@@ -173,6 +213,14 @@ const Profile: React.FC<ProfileProps> = ({ user, users, setUsers, onUpdate, expo
                         <UploadIcon className="w-8 h-8 text-emerald-500 group-hover:scale-110 transition-transform" />
                         <span className="font-black text-xs text-slate-700">استيراد نسخة احتياطية</span>
                         <input type="file" ref={dbInputRef} className="hidden" accept=".json" onChange={importDatabase} />
+                     </button>
+                     <button
+                        onClick={handleRestoreData}
+                        disabled={isRestoring}
+                        className="p-6 border-2 border-slate-100 rounded-3xl hover:border-amber-200 hover:bg-amber-50 transition-all flex flex-col items-center gap-3 group"
+                     >
+                        <RefreshCw className={`w-8 h-8 text-amber-500 group-hover:rotate-180 transition-transform ${isRestoring ? 'animate-spin' : ''}`} />
+                        <span className="font-black text-xs text-slate-700">{isRestoring ? 'جاري الاستعادة...' : 'استعادة البيانات الافتراضية'}</span>
                      </button>
                   </div>
                </div>

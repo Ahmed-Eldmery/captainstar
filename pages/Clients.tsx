@@ -154,7 +154,7 @@ const Clients: React.FC<ClientsPageProps> = ({ user, clients, setClients, tasks 
           coverImage: newClient.coverImage || ''
         });
 
-        await db.logActivity(user.id, 'تعديل بيانات عميل', 'clients', editingClientId);
+        await db.logActivity(user.id, `تحديث بيانات عميل: ${newClient.name}`, 'clients', editingClientId);
         setClients(clients.map(c => c.id === editingClientId ? updatedClient : c));
       } else {
         // إضافة عميل جديد
@@ -178,7 +178,7 @@ const Clients: React.FC<ClientsPageProps> = ({ user, clients, setClients, tasks 
         };
 
         const savedClient = await db.insert('clients', clientData);
-        await db.logActivity(user.id, 'إضافة عميل جديد', 'clients', savedClient.id);
+        await db.logActivity(user.id, `إضافة عميل جديد: ${newClient.name}`, 'clients', savedClient.id);
         setClients([savedClient, ...clients]);
       }
 

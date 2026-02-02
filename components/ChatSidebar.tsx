@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Users, X, Send, MessageSquare, ChevronLeft } from 'lucide-react';
+import { supabase, db, generateId } from '../lib/supabase';
 
 
 
@@ -22,16 +23,59 @@ const FAKE_MESSAGES = {
 // users prop: array of user objects from team
 export default function ChatSidebar({ users = [] }) {
   const [open, setOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
-  const chatRef = useRef(null);
+  const chatRef = useRef<HTMLDivElement>(null);
+  const subscriptionRef = useRef<any>(null);
 
+  // Load current user
   useEffect(() => {
-    if (selectedUser) {
-      setMessages(FAKE_MESSAGES[selectedUser.id] || []);
-    }
-  }, [selectedUser]);
+    const saved = localStorage.getItem('cs_user');
+    if (saved) setCurrentUser(JSON.parse(saved));
+  }, []);
+
+  // Fetch messages when selectedUser changes
+  useEffect(() => {
+    if (!selectedUser || !currentUser) return;
+
+    const fetchMessages = async () => {
+      const { data } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${selectedUser.id}),and(sender_id.eq.${selectedUser.id},receiver_id.eq.${currentUser.id})`)
+        .order('created_at', { ascending: true });
+
+      if (data) setMessages(data);
+      if (data && data.length > 0) {
+        // Mark as read
+        const unreadIds = data.filter((m: any) => m.receiver_id === currentUser.id && !m.read_at).map((m: any) => m.id);
+        if (unreadIds.length > 0) {
+          supabase.from('messages').update({ read_at: new Date().toISOString() }).in('id', unreadIds);
+        }
+      }
+    };
+
+    fetchMessages();
+
+    subscriptionRef.current = supabase
+      .channel('sidebar_chat')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const newMsg = payload.new;
+        if (
+          (newMsg.sender_id === currentUser.id && newMsg.receiver_id === selectedUser.id) ||
+          (newMsg.sender_id === selectedUser.id && newMsg.receiver_id === currentUser.id)
+        ) {
+          setMessages(prev => [...prev, newMsg]);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      if (subscriptionRef.current) supabase.removeChannel(subscriptionRef.current);
+    };
+  }, [selectedUser, currentUser]);
 
   useEffect(() => {
     if (open && chatRef.current) {
@@ -39,14 +83,28 @@ export default function ChatSidebar({ users = [] }) {
     }
   }, [messages, open]);
 
-  const handleSend = () => {
-    if (!input.trim() || !selectedUser) return;
-    setMessages(msgs => [...msgs, { from: 'me', text: input }]);
+  const handleSend = async () => {
+    if (!input.trim() || !selectedUser || !currentUser) return;
+    const text = input;
+
+    // Optimistic Update
+    const optimisticMsg = {
+      id: generateId(),
+      sender_id: currentUser.id,
+      receiver_id: selectedUser.id,
+      content: text,
+      created_at: new Date().toISOString(),
+      read_at: null
+    };
+
     setInput('');
-    // إضافة رسالة وهمية كرد تلقائي
-    setTimeout(() => {
-      setMessages(msgs => [...msgs, { from: selectedUser.id, text: '👍' }]);
-    }, 800);
+    setMessages(prev => [...prev, optimisticMsg]);
+
+    try {
+      await db.insert('messages', optimisticMsg);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
@@ -69,7 +127,7 @@ export default function ChatSidebar({ users = [] }) {
                 <span className="font-black text-white text-lg">دردشة الفريق</span>
               </div>
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                {users.map(u => (
+                {users.filter((u: any) => u.id !== currentUser?.id).map((u: any) => (
                   <button
                     key={u.id}
                     className="flex items-center gap-4 w-full p-3 rounded-2xl hover:bg-rose-50 transition-all text-right font-ibm-plex-arabic"
@@ -85,22 +143,25 @@ export default function ChatSidebar({ users = [] }) {
             <div className="flex flex-col h-96">
               <div className="p-5 border-b flex items-center gap-3 bg-rose-600 rounded-t-3xl">
                 <button onClick={() => setSelectedUser(null)} className="text-white hover:text-rose-200"><ChevronLeft className="w-6 h-6" /></button>
-                <img src={selectedUser.avatar} alt={selectedUser.name} className="w-10 h-10 rounded-full border-2 border-rose-200" />
+                <img src={selectedUser.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedUser.name)}&background=rose&color=fff`} alt={selectedUser.name} className="w-10 h-10 rounded-full border-2 border-rose-200" />
                 <span className="font-black text-white text-lg font-ibm-plex-arabic">{selectedUser.name}</span>
               </div>
               <div ref={chatRef} className="flex-1 p-5 space-y-3 overflow-y-auto max-h-60 text-right font-ibm-plex-arabic">
-                {messages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.from === 'me' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`rounded-2xl px-4 py-2 max-w-[80%] text-sm font-bold shadow font-ibm-plex-arabic ${msg.from === 'me' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'}`}>
-                      {msg.text}
+                {messages.map((msg, i) => {
+                  const isMe = msg.sender_id === currentUser?.id;
+                  return (
+                    <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`rounded-2xl px-4 py-2 max-w-[80%] text-sm font-bold shadow font-ibm-plex-arabic ${isMe ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'}`}>
+                        {msg.content}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <form className="flex border-t p-3 gap-2 bg-rose-50 rounded-b-3xl font-ibm-plex-arabic" onSubmit={e => { e.preventDefault(); handleSend(); }}>
                 <input
                   className="flex-1 rounded-xl border-2 border-rose-200 px-4 py-2 text-sm outline-none focus:border-rose-400 font-ibm-plex-arabic"
-                  placeholder={`اكتب رسالة إلى ${selectedUser.name}...`}
+                  placeholder={`اكتب رسالة...`}
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   dir="rtl"

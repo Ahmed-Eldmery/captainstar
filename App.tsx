@@ -1,23 +1,23 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, Users, FolderKanban, CheckSquare, 
-  Files, ThumbsUp, BarChart3, ListTodo, LogOut, Menu, 
+import {
+  LayoutDashboard, Users, FolderKanban, CheckSquare,
+  Files, ThumbsUp, BarChart3, ListTodo, LogOut, Menu,
   Search, Bell, User as UserIcon, Sparkles, X, Check, Settings, Shield,
   Users2, MessagesSquare, Database, Download, Upload as UploadIcon, Loader2
 } from 'lucide-react';
 
-import { 
-  USERS as INITIAL_USERS, 
-  CLIENTS as INITIAL_CLIENTS, 
-  PROJECTS as INITIAL_PROJECTS, 
-  TASKS as INITIAL_TASKS, 
+import {
+  USERS as INITIAL_USERS,
+  CLIENTS as INITIAL_CLIENTS,
+  PROJECTS as INITIAL_PROJECTS,
+  TASKS as INITIAL_TASKS,
   CLIENT_ACCOUNTS as INITIAL_ACCOUNTS,
   PERFORMANCE as INITIAL_PERFORMANCE,
   ACTIVITY_LOGS as INITIAL_LOGS
 } from './mockData.ts';
-import { User, Role, Client, Project, Task, ClientAccount, PerformanceSnapshot, ActivityLogEntry, CommunityPost, FileAsset } from './types.ts';
+import { User, Role, Client, Project, Task, ClientAccount, PerformanceSnapshot, ActivityLogEntry, CommunityPost, FileAsset, AgencySettings } from './types.ts';
 import { canUserDo } from './lib/permissions.ts';
 import { supabase, db } from './lib/supabase.ts';
 import { testDatabaseConnection } from './lib/test-db.ts';
@@ -63,7 +63,7 @@ const Layout: React.FC<{ children: React.ReactNode; user: User; onLogout: () => 
     { name: 'السجل', href: '/activity-log', icon: ListTodo, visible: user.role === Role.ADMIN || user.role === Role.OWNER },
   ];
 
-  const activePage = navigation.find(item => 
+  const activePage = navigation.find(item =>
     item.href === '/' ? location.pathname === '/' : location.pathname.startsWith(item.href)
   );
 
@@ -80,7 +80,7 @@ const Layout: React.FC<{ children: React.ReactNode; user: User; onLogout: () => 
           <div className="p-10 flex items-center space-x-4 space-x-reverse">
             <div className="w-12 h-12 bg-rose-600 rounded-2xl flex items-center justify-center font-black text-2xl shadow-2xl shadow-rose-900/50">CS</div>
             <div>
-              <span className="text-xl font-black tracking-tight block">كابتن <span className="inline-block animate-spin text-amber-400 align-middle"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l2.39 7.19H22l-5.8 4.21L18.19 22 12 17.27 5.81 22l1.99-8.6L2 9.19h7.61z"/></svg></span></span>
+              <span className="text-xl font-black tracking-tight block">كابتن <span className="inline-block animate-spin text-amber-400 align-middle"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l2.39 7.19H22l-5.8 4.21L18.19 22 12 17.27 5.81 22l1.99-8.6L2 9.19h7.61z" /></svg></span></span>
               <span className="text-[10px] text-rose-500 font-bold uppercase tracking-widest opacity-80">نظام الإدارة الذكي</span>
             </div>
           </div>
@@ -93,8 +93,8 @@ const Layout: React.FC<{ children: React.ReactNode; user: User; onLogout: () => 
                   to={item.href}
                   className={`
                     flex items-center space-x-4 space-x-reverse px-5 py-4 rounded-2xl text-sm font-bold transition-all duration-300
-                    ${activePage?.href === item.href 
-                      ? 'bg-rose-600 text-white shadow-xl shadow-rose-900/40 scale-[1.02]' 
+                    ${activePage?.href === item.href
+                      ? 'bg-rose-600 text-white shadow-xl shadow-rose-900/40 scale-[1.02]'
                       : 'text-slate-500 hover:text-white hover:bg-white/5'}
                   `}
                   onClick={() => setSidebarOpen(false)}
@@ -135,32 +135,32 @@ const Layout: React.FC<{ children: React.ReactNode; user: User; onLogout: () => 
           </button>
 
           <div className="hidden md:flex flex-1 max-w-xl">
-             <div className="relative w-full group">
-               <Search className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-rose-500 transition-colors" />
-               <input type="text" placeholder="ابحث عن مهام، عملاء، أو ملفات..." className="w-full pr-14 pl-6 py-4 bg-slate-100/50 border-2 border-transparent focus:border-rose-100 focus:bg-white rounded-[1.5rem] text-sm font-bold outline-none transition-all" />
-             </div>
+            <div className="relative w-full group">
+              <Search className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-rose-500 transition-colors" />
+              <input type="text" placeholder="ابحث عن مهام، عملاء، أو ملفات..." className="w-full pr-14 pl-6 py-4 bg-slate-100/50 border-2 border-transparent focus:border-rose-100 focus:bg-white rounded-[1.5rem] text-sm font-bold outline-none transition-all" />
+            </div>
           </div>
 
           <div className="flex items-center space-x-6 space-x-reverse relative">
-             <div className="hidden lg:flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 shadow-inner">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">متصل بـ Supabase</span>
-             </div>
+            <div className="hidden lg:flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 shadow-inner">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">متصل بـ Supabase</span>
+            </div>
 
-             <div className="relative">
-                <button 
-                  onClick={() => setNotifOpen(!notifOpen)}
-                  className={`relative p-3 rounded-2xl transition-all ${notifOpen ? 'bg-rose-600 text-white shadow-xl shadow-rose-200' : 'bg-slate-100/50 text-slate-500 hover:text-rose-600'}`}
-                >
-                  <Bell className="w-6 h-6" />
-                </button>
-             </div>
+            <div className="relative">
+              <button
+                onClick={() => setNotifOpen(!notifOpen)}
+                className={`relative p-3 rounded-2xl transition-all ${notifOpen ? 'bg-rose-600 text-white shadow-xl shadow-rose-200' : 'bg-slate-100/50 text-slate-500 hover:text-rose-600'}`}
+              >
+                <Bell className="w-6 h-6" />
+              </button>
+            </div>
 
-             <Link to="/profile" className="p-1 bg-slate-100 rounded-full hover:ring-2 ring-rose-500 transition-all overflow-hidden w-11 h-11 border-2 border-white shadow-sm">
-                <div className="w-full h-full bg-rose-600 flex items-center justify-center text-white font-black text-xs">
-                   {user.avatarUrl ? <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : user.name.charAt(0)}
-                </div>
-             </Link>
+            <Link to="/profile" className="p-1 bg-slate-100 rounded-full hover:ring-2 ring-rose-500 transition-all overflow-hidden w-11 h-11 border-2 border-white shadow-sm">
+              <div className="w-full h-full bg-rose-600 flex items-center justify-center text-white font-black text-xs">
+                {user.avatarUrl ? <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : user.name.charAt(0)}
+              </div>
+            </Link>
           </div>
         </header>
 
@@ -189,70 +189,63 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<ActivityLogEntry[]>([]);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [files, setFiles] = useState<FileAsset[]>([]);
+  const [settings, setSettings] = useState<AgencySettings>({});
 
   // جلب كافة البيانات من سوبا بيز عند تشغيل التطبيق
   useEffect(() => {
     testDatabaseConnection();
     const fetchAllData = async () => {
       try {
-        const [uData, cData, pData, tData, aData, perfData, lData, postData, fData] = await Promise.all([
-          db.getAll('users').catch(err => {
-            console.warn('تحذير جلب المستخدمين:', err);
-            return INITIAL_USERS;
-          }),
-          db.getAll('clients').catch(err => {
-            console.warn('تحذير جلب العملاء:', err);
-            return INITIAL_CLIENTS;
-          }),
-          db.getAll('projects').catch(err => {
-            console.warn('تحذير جلب المشاريع:', err);
-            return INITIAL_PROJECTS;
-          }),
-          db.getAll('tasks').catch(err => {
-            console.warn('تحذير جلب المهام:', err);
-            return INITIAL_TASKS;
-          }),
-          db.getAll('client_accounts').catch(err => {
-            console.warn('تحذير جلب الحسابات:', err);
-            return INITIAL_ACCOUNTS;
-          }),
-          db.getAll('performance_snapshots').catch(err => {
-            console.warn('تحذير جلب الأداء:', err);
-            return INITIAL_PERFORMANCE;
-          }),
-          db.getAll('activity_logs').catch(err => {
-            console.warn('تحذير جلب السجلات:', err);
-            return INITIAL_LOGS;
-          }),
-          db.getAll('community_posts').catch(err => {
-            console.warn('تحذير جلب المنشورات:', err);
-            return [];
-          }),
-          db.getAll('file_assets').catch(err => {
-            console.warn('تحذير جلب الملفات:', err);
-            return [];
-          })
+        const [uData, settingsData, cData, pData, tData, accData, perfData, logData, postData, fileData] = await Promise.all([
+          db.getAll('users').catch(err => { console.warn('Users Error:', err); return []; }),
+          db.getAll('agency_settings').catch(err => { console.warn('Settings Error:', err); return []; }),
+          db.getAll('clients').catch(err => { console.warn('Clients Error:', err); return []; }),
+          db.getAll('projects').catch(err => { console.warn('Projects Error:', err); return []; }),
+          db.getAll('tasks').catch(err => { console.warn('Tasks Error:', err); return []; }),
+          db.getAll('client_accounts').catch(err => { console.warn('Accounts Error:', err); return []; }),
+          db.getAll('performance_snapshots').catch(err => { console.warn('Performance Error:', err); return []; }),
+          db.getAll('activity_logs').catch(err => { console.warn('Logs Error:', err); return []; }),
+          db.getAll('community_posts').catch(err => { console.warn('Posts Error:', err); return []; }),
+          db.getAll('file_assets').catch(err => { console.warn('Files Error:', err); return []; })
         ]);
 
         setUsers(uData as User[]);
+
+        // تحويل مصفوفة الإعدادات إلى كائن
+        const settingsMap: AgencySettings = {};
+        if (Array.isArray(settingsData)) {
+          settingsData.forEach((item: any) => {
+            if (item.key && item.value) settingsMap[item.key] = item.value;
+          });
+        }
+        setSettings(settingsMap);
+
         setClients(cData as Client[]);
         setProjects(pData as Project[]);
         setTasks(tData as Task[]);
-        setAccounts(aData as ClientAccount[]);
+        setAccounts(accData as ClientAccount[]);
         setPerformance(perfData as PerformanceSnapshot[]);
-        setLogs(lData as ActivityLogEntry[]);
+        setLogs(logData as ActivityLogEntry[]);
         setPosts(postData as CommunityPost[]);
-        setFiles(fData as FileAsset[]);
+        setFiles(fileData as FileAsset[]);
+
+        // We forgot file_assets in the destructuring (should be index 9)
+        // Let's rely on the Promise.all result array directly to be safe? 
+        // No, let's just use the result array directly which is safer if we missed one in destructuring
+        // But for minimal change, let's fix the variable naming or just access the Promise result.
+        // Actually, let's assume the destructuring missed the last one.
+        // Let's refactor the destructuring to be clean.
+
       } catch (err) {
         console.error('خطأ في جلب البيانات:', err);
-        // استخدام البيانات الأولية كنسخة احتياطية
-        setUsers(INITIAL_USERS);
-        setClients(INITIAL_CLIENTS);
-        setProjects(INITIAL_PROJECTS);
-        setTasks(INITIAL_TASKS);
-        setAccounts(INITIAL_ACCOUNTS);
-        setPerformance(INITIAL_PERFORMANCE);
-        setLogs(INITIAL_LOGS);
+        // استخدام البيانات الفارغة في حال الفشل
+        setUsers([]);
+        setClients([]);
+        setProjects([]);
+        setTasks([]);
+        setAccounts([]);
+        setPerformance([]);
+        setLogs([]);
       } finally {
         setLoading(false);
       }
@@ -277,7 +270,7 @@ const App: React.FC = () => {
       <div className="h-screen flex items-center justify-center bg-slate-950 flex-col gap-6">
         <div className="w-20 h-20 bg-rose-600 rounded-[2.5rem] flex items-center justify-center text-white font-black text-3xl animate-bounce shadow-2xl shadow-rose-900">CS</div>
         <div className="flex items-center gap-3 text-rose-500 font-black tracking-widest uppercase text-xs">
-           <Loader2 className="w-4 h-4 animate-spin" /> جاري الاتصال بقاعدة البيانات...
+          <Loader2 className="w-4 h-4 animate-spin" /> جاري الاتصال بقاعدة البيانات...
         </div>
       </div>
     );
@@ -286,11 +279,11 @@ const App: React.FC = () => {
   // إظهار صفحة تسجيل الدخول إذا لم يكن المستخدم مسجلاً
   if (!user) return <HashRouter><Routes><Route path="*" element={<Login onLogin={handleLogin} />} /></Routes></HashRouter>;
 
-  const appProps = { 
-    user, setUser, users, setUsers, clients, setClients, 
+  const appProps = {
+    user, setUser, users, setUsers, clients, setClients,
     projects, setProjects, tasks, setTasks, accounts, setAccounts,
     performance, setPerformance, logs, setLogs, posts, setPosts,
-    files, setFiles
+    files, setFiles, settings
   };
 
   return (
@@ -298,7 +291,7 @@ const App: React.FC = () => {
       <Layout user={user} onLogout={handleLogout}>
         <Routes>
           <Route path="/" element={<Dashboard {...appProps} />} />
-          <Route path="/profile" element={<Profile {...appProps} onUpdate={setUser} exportDatabase={() => {}} importDatabase={() => {}} tasks={tasks} />} />
+          <Route path="/profile" element={<Profile {...appProps} onUpdate={setUser} exportDatabase={() => { }} importDatabase={() => { }} tasks={tasks} />} />
           <Route path="/ai-center" element={<AICenter user={user} />} />
           <Route path="/community" element={<Community {...appProps} />} />
           <Route path="/clients" element={<Clients {...appProps} />} />
