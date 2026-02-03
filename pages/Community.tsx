@@ -40,17 +40,22 @@ const Community: React.FC<CommunityProps> = ({ user, users, posts, setPosts }) =
 
   // Check if user can post
   const canPost = useMemo(() => {
-    // Everyone can post in "ساحة عامة" (General tab)
-    if (selectedDept === 'ساحة عامة') return true;
+    // Department-specific tabs: everyone in their own department can post freely
+    if (selectedDept !== 'ساحة عامة') {
+      // Owner/Admin can post anywhere
+      if (user.role === Role.OWNER || user.role === Role.ADMIN) return true;
+      // Regular users can only post in their own department
+      return selectedDept === user.teamRole;
+    }
 
-    // For department-specific tabs, check permissions
+    // For "ساحة عامة" (General tab), apply posting permissions
     if (user.role === Role.OWNER) return true;
     if (postingPermission === 'owner_only') return false;
     if (postingPermission === 'admins') return user.role === Role.ADMIN;
     if (postingPermission === 'team_members') return true;
     if (postingPermission === 'everyone') return true;
     return false;
-  }, [user.role, postingPermission, selectedDept]);
+  }, [user.role, postingPermission, selectedDept, user.teamRole]);
 
   // Save posting permission
   const savePostingPermission = async (newPermission: PostingPermission) => {
