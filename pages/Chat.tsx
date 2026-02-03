@@ -25,15 +25,53 @@ export default function ChatPage({ users = [] }) {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
+  const [allMessages, setAllMessages] = useState<any[]>([]); // All messages for current user
   const [input, setInput] = useState('');
   const chatRef = useRef<HTMLDivElement>(null);
   const subscriptionRef = useRef<any>(null);
+  const globalSubRef = useRef<any>(null);
 
   // Load current user
   useEffect(() => {
     const saved = localStorage.getItem('cs_user');
     if (saved) setCurrentUser(JSON.parse(saved));
   }, []);
+
+  // Fetch ALL messages for current user (to show unread counts)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const fetchAllMessages = async () => {
+      const myId = String(currentUser.id);
+      const { data } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`sender_id.eq.${myId},receiver_id.eq.${myId}`)
+        .order('created_at', { ascending: false });
+      if (data) setAllMessages(data);
+    };
+
+    fetchAllMessages();
+
+    // Global subscription for all messages involving current user
+    globalSubRef.current = supabase
+      .channel('all_my_messages')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const newMsg = payload.new;
+        const myId = String(currentUser.id);
+        if (String(newMsg.sender_id) === myId || String(newMsg.receiver_id) === myId) {
+          setAllMessages(prev => {
+            if (prev.some(m => m.id === newMsg.id)) return prev;
+            return [newMsg, ...prev];
+          });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      if (globalSubRef.current) supabase.removeChannel(globalSubRef.current);
+    };
+  }, [currentUser]);
 
   // Fetch messages when selectedUser changes
   useEffect(() => {
@@ -60,12 +98,17 @@ export default function ChatPage({ users = [] }) {
 
       // Mark received messages as read
       if (data) {
+        const myId = String(currentUser.id);
         const unreadIds = data
-          .filter((m: any) => m.receiver_id === currentUser.id && !m.read_at)
+          .filter((m: any) => String(m.receiver_id) === myId && !m.read_at)
           .map((m: any) => m.id);
 
         if (unreadIds.length > 0) {
           await supabase.from('messages').update({ read_at: new Date().toISOString() }).in('id', unreadIds);
+          // Also update allMessages state to reflect read status
+          setAllMessages(prev => prev.map(m =>
+            unreadIds.includes(m.id) ? { ...m, read_at: new Date().toISOString() } : m
+          ));
         }
       }
     };
@@ -171,19 +214,55 @@ export default function ChatPage({ users = [] }) {
           <span className="font-black text-white text-lg tracking-tight">دردشة الفريق</span>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {users.filter((u: any) => u.id !== currentUser?.id).map((u: any) => (
-            <button
-              key={u.id}
-              className={`flex items-center gap-4 w-full p-3 rounded-2xl transition-all text-right font-bold text-lg font-ibm-plex-arabic ${selectedUser?.id === u.id ? 'bg-rose-100 text-rose-700' : 'hover:bg-rose-100 text-slate-800'}`}
-              onClick={() => setSelectedUser(u)}
-            >
-              <div className="relative">
-                <img src={u.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=rose&color=fff`} alt={u.name} className="w-12 h-12 rounded-full border-2 border-rose-200" />
-                {/* Online/Offline indicator could go here */}
-              </div>
-              <span>{u.name}</span>
-            </button>
-          ))}
+          {users
+            .filter((u: any) => u.id !== currentUser?.id)
+            .map((u: any) => {
+              // Get unread count for this user
+              const unreadCount = allMessages.filter(
+                m => String(m.sender_id) === String(u.id) &&
+                  String(m.receiver_id) === String(currentUser?.id) &&
+                  !m.read_at
+              ).length;
+
+              // Get last message with this user
+              const lastMsg = allMessages.find(
+                m => (String(m.sender_id) === String(u.id) && String(m.receiver_id) === String(currentUser?.id)) ||
+                  (String(m.sender_id) === String(currentUser?.id) && String(m.receiver_id) === String(u.id))
+              );
+
+              return { ...u, unreadCount, lastMsg };
+            })
+            .sort((a, b) => {
+              // Sort by last message time (most recent first)
+              if (!a.lastMsg && !b.lastMsg) return 0;
+              if (!a.lastMsg) return 1;
+              if (!b.lastMsg) return -1;
+              return new Date(b.lastMsg.created_at).getTime() - new Date(a.lastMsg.created_at).getTime();
+            })
+            .map((u: any) => (
+              <button
+                key={u.id}
+                className={`flex items-center gap-4 w-full p-3 rounded-2xl transition-all text-right font-bold text-lg font-ibm-plex-arabic ${selectedUser?.id === u.id ? 'bg-rose-100 text-rose-700' : 'hover:bg-rose-100 text-slate-800'}`}
+                onClick={() => setSelectedUser(u)}
+              >
+                <div className="relative">
+                  <img src={u.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=rose&color=fff`} alt={u.name} className="w-12 h-12 rounded-full border-2 border-rose-200" />
+                  {u.unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                      {u.unreadCount > 9 ? '9+' : u.unreadCount}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 text-right">
+                  <span className="block">{u.name}</span>
+                  {u.lastMsg && (
+                    <span className="text-xs text-slate-400 truncate block max-w-[150px]">
+                      {u.lastMsg.content?.substring(0, 25)}{u.lastMsg.content?.length > 25 ? '...' : ''}
+                    </span>
+                  )}
+                </div>
+              </button>
+            ))}
         </div>
       </aside>
       {/* نافذة الشات */}
