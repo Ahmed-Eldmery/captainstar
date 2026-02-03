@@ -83,17 +83,16 @@ export default function ChatPage({ users = [] }) {
       const myId = String(currentUser.id);
       const otherId = String(selectedUser.id);
 
+      // Use a single .or() with the correct compound conditions
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .or(`sender_id.eq.${myId},sender_id.eq.${otherId}`)
-        .or(`receiver_id.eq.${myId},receiver_id.eq.${otherId}`)
-        // We need to filter client-side or use a more complex OR because Supabase/PostgREST simple OR is limited
-        // The previous query was correct for logic but maybe syntax issue.
-        // Let's try the standard syntax with .or() containing the exact logic
         .or(`and(sender_id.eq.${myId},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${myId})`)
         .order('created_at', { ascending: true });
 
+      if (error) {
+        console.error('Error fetching messages:', error);
+      }
       if (data) setMessages(data);
 
       // Mark received messages as read
