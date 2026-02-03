@@ -72,9 +72,10 @@ export default function ChatPage({ users = [] }) {
 
     fetchMessages();
 
-    // Realtime Subscription
+    // Realtime Subscription - use unique channel name per conversation
+    const channelName = `chat_${[currentUser.id, selectedUser.id].sort().join('_')}`;
     subscriptionRef.current = supabase
-      .channel('chat_room')
+      .channel(channelName)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const newMsg = payload.new;
         // Check if this message belongs to the current conversation (String comparison)
@@ -93,12 +94,14 @@ export default function ChatPage({ users = [] }) {
           });
 
           // If I received it, mark as read immediately
-          if (newMsg.receiver_id === currentUser.id) {
+          if (String(newMsg.receiver_id) === myId) {
             supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('id', newMsg.id);
           }
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Chat subscription status:', status);
+      });
 
     return () => {
       if (subscriptionRef.current) supabase.removeChannel(subscriptionRef.current);
@@ -133,6 +136,21 @@ export default function ChatPage({ users = [] }) {
 
     try {
       await db.insert('messages', optimisticMsg);
+
+      // Create notification for receiver
+      try {
+        await db.insert('notifications', {
+          id: generateId(),
+          user_id: String(selectedUser.id),
+          type: 'message',
+          title: `رسالة جديدة من ${currentUser.name}`,
+          message: textToSend.substring(0, 50) + (textToSend.length > 50 ? '...' : ''),
+          link: '/chat',
+          created_at: new Date().toISOString()
+        });
+      } catch (notifErr) {
+        console.log('Could not create notification:', notifErr);
+      }
     } catch (err) {
       console.error("Failed to send", err);
       setInput(textToSend);
