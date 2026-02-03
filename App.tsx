@@ -47,7 +47,41 @@ const Layout: React.FC<{ children: React.ReactNode; user: User; onLogout: () => 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(() => parseInt(localStorage.getItem('unread_messages') || '0'));
+  const [notifications, setNotifications] = useState<any[]>([]);
   const location = useLocation();
+
+  // Fetch notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const { data } = await supabase
+          .from('notifications')
+          .select('*')
+          .or(`user_id.eq.${user.id},user_id.eq.all`)
+          .order('created_at', { ascending: false })
+          .limit(20);
+        if (data) setNotifications(data);
+      } catch (e) {
+        console.log('Notifications table not ready yet');
+      }
+    };
+    fetchNotifications();
+
+    // Subscribe to new notifications
+    const notifSub = supabase
+      .channel('notifications_channel')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
+        const newNotif = payload.new;
+        if (String(newNotif.user_id) === String(user.id) || newNotif.user_id === 'all') {
+          setNotifications(prev => [newNotif, ...prev]);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(notifSub);
+    };
+  }, [user.id]);
 
   // Listen for new message events from App.tsx
   useEffect(() => {
@@ -178,7 +212,67 @@ const Layout: React.FC<{ children: React.ReactNode; user: User; onLogout: () => 
                 className={`relative p-3 rounded-2xl transition-all ${notifOpen ? 'bg-rose-600 text-white shadow-xl shadow-rose-200' : 'bg-slate-100/50 text-slate-500 hover:text-rose-600'}`}
               >
                 <Bell className="w-6 h-6" />
+                {notifications.filter(n => !n.read_at).length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                    {notifications.filter(n => !n.read_at).length > 9 ? '9+' : notifications.filter(n => !n.read_at).length}
+                  </span>
+                )}
               </button>
+
+              {/* Notification Panel */}
+              {notifOpen && (
+                <div className="absolute left-0 top-14 w-80 bg-white rounded-3xl shadow-2xl border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                    <h3 className="font-black text-slate-900">الإشعارات</h3>
+                    <button
+                      onClick={async () => {
+                        // Mark all as read
+                        const unreadIds = notifications.filter(n => !n.read_at).map(n => n.id);
+                        if (unreadIds.length > 0) {
+                          await supabase.from('notifications').update({ read_at: new Date().toISOString() }).in('id', unreadIds);
+                          setNotifications(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
+                        }
+                      }}
+                      className="text-xs font-bold text-rose-600 hover:underline"
+                    >
+                      قراءة الكل
+                    </button>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-slate-400 font-bold">
+                        لا توجد إشعارات
+                      </div>
+                    ) : (
+                      notifications.map(notif => (
+                        <div
+                          key={notif.id}
+                          onClick={async () => {
+                            if (!notif.read_at) {
+                              await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', notif.id);
+                              setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read_at: new Date().toISOString() } : n));
+                            }
+                            if (notif.link) window.location.hash = notif.link;
+                            setNotifOpen(false);
+                          }}
+                          className={`p-4 border-b border-slate-50 hover:bg-slate-50 cursor-pointer transition-all ${!notif.read_at ? 'bg-rose-50/50' : ''}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`w-2 h-2 rounded-full mt-2 ${!notif.read_at ? 'bg-rose-500' : 'bg-slate-200'}`}></div>
+                            <div className="flex-1">
+                              <p className="font-black text-sm text-slate-900">{notif.title}</p>
+                              <p className="text-xs text-slate-500 mt-1">{notif.message}</p>
+                              <p className="text-[10px] text-slate-400 mt-2">
+                                {new Date(notif.created_at).toLocaleDateString('ar-SA')}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <Link to="/profile" className="p-1 bg-slate-100 rounded-full hover:ring-2 ring-rose-500 transition-all overflow-hidden w-11 h-11 border-2 border-white shadow-sm">
@@ -291,7 +385,10 @@ const App: React.FC = () => {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
           if (payload.eventType === 'INSERT') {
             const newTask = payload.new as Task;
-            setTasks(prev => [newTask, ...prev]);
+            setTasks(prev => {
+              if (prev.some(t => t.id === newTask.id)) return prev;
+              return [newTask, ...prev];
+            });
             if (String(newTask.assignedToUserId) === String(user.id)) {
               playNotificationSound();
               alert(`🔔 مهمة جديدة: ${newTask.title}`);
@@ -303,9 +400,34 @@ const App: React.FC = () => {
           }
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, (payload) => {
-          if (payload.eventType === 'INSERT') setProjects(prev => [payload.new as Project, ...prev]);
+          if (payload.eventType === 'INSERT') {
+            setProjects(prev => {
+              if (prev.some(p => p.id === (payload.new as Project).id)) return prev;
+              return [payload.new as Project, ...prev];
+            });
+          }
           else if (payload.eventType === 'UPDATE') setProjects(prev => prev.map(p => p.id === payload.new.id ? payload.new as Project : p));
           else if (payload.eventType === 'DELETE') setProjects(prev => prev.filter(p => p.id !== payload.old.id));
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setClients(prev => {
+              if (prev.some(c => c.id === (payload.new as Client).id)) return prev;
+              return [payload.new as Client, ...prev];
+            });
+          }
+          else if (payload.eventType === 'UPDATE') setClients(prev => prev.map(c => c.id === payload.new.id ? payload.new as Client : c));
+          else if (payload.eventType === 'DELETE') setClients(prev => prev.filter(c => c.id !== payload.old.id));
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'client_accounts' }, (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setAccounts(prev => {
+              if (prev.some(a => a.id === (payload.new as ClientAccount).id)) return prev;
+              return [payload.new as ClientAccount, ...prev];
+            });
+          }
+          else if (payload.eventType === 'UPDATE') setAccounts(prev => prev.map(a => a.id === payload.new.id ? payload.new as ClientAccount : a));
+          else if (payload.eventType === 'DELETE') setAccounts(prev => prev.filter(a => a.id !== payload.old.id));
         })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
           const newMsg = payload.new;
