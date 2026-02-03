@@ -1,7 +1,7 @@
 
 # Captain Star Agency Dashboard 🚀
 
-Internal marketing agency tool for Captain Star (Saudi Arabia), powered by Supabase & Gemini AI.
+Internal marketing agency tool for Captain Star (Saudi Arabia), with AI-powered features.
 
 ## Supabase Integration (Activation)
 

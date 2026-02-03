@@ -1,4 +1,4 @@
-// Initialize Gemini API
+// Initialize AI API
 // Priority: 1. Global DB Key (cached in localStorage), 2. localStorage, 3. env variable
 import { supabase } from './supabase';
 

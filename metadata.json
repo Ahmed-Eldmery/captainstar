@@ -1,6 +1,6 @@
 {
   "name": "Captain Star Agency Dashboard",
-  "description": "Internal management tool for Captain Star (Saudi Arabia), powered by Gemini AI for content creation, analysis and automation.",
+  "description": "Internal management tool for Captain Star (Saudi Arabia), with AI-powered content creation, analysis and automation.",
   "requestFramePermissions": [
     "camera",
     "microphone"

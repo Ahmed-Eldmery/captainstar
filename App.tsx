@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, FolderKanban, CheckSquare,
   Files, ThumbsUp, BarChart3, ListTodo, LogOut, Menu,
   Search, Bell, User as UserIcon, Sparkles, X, Check, Settings, Shield,
-  Users2, MessagesSquare, Database, Download, Upload as UploadIcon, Loader2
+  Users2, MessagesSquare, Database, Download, Upload as UploadIcon, Loader2, Moon, Sun
 } from 'lucide-react';
 
 import {
@@ -48,7 +48,18 @@ const Layout: React.FC<{ children: React.ReactNode; user: User; onLogout: () => 
   const [notifOpen, setNotifOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(() => parseInt(localStorage.getItem('unread_messages') || '0'));
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('dark_mode') === 'true');
   const location = useLocation();
+
+  // Dark mode effect
+  useEffect(() => {
+    localStorage.setItem('dark_mode', String(darkMode));
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
 
   // Fetch notifications
   useEffect(() => {
@@ -122,7 +133,7 @@ const Layout: React.FC<{ children: React.ReactNode; user: User; onLogout: () => 
   );
 
   return (
-    <div className="min-h-screen flex bg-[#fcfcfc] font-sans overflow-hidden" dir="rtl">
+    <div className={`min-h-screen flex font-sans overflow-hidden transition-colors duration-300 ${darkMode ? 'bg-slate-900' : 'bg-[#fcfcfc]'}`} dir="rtl">
       {sidebarOpen && <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       <aside className={`
@@ -187,9 +198,9 @@ const Layout: React.FC<{ children: React.ReactNode; user: User; onLogout: () => 
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <header className="h-24 bg-white/70 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between px-8 lg:px-12 sticky top-0 z-30">
-          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-3 text-slate-500">
+      <main className={`flex-1 flex flex-col h-screen overflow-hidden ${darkMode ? 'bg-slate-900' : ''}`}>
+        <header className={`h-24 backdrop-blur-xl border-b flex items-center justify-between px-8 lg:px-12 sticky top-0 z-30 transition-colors duration-300 ${darkMode ? 'bg-slate-800/70 border-slate-700' : 'bg-white/70 border-slate-100'}`}>
+          <button onClick={() => setSidebarOpen(true)} className={`lg:hidden p-3 ${darkMode ? 'text-slate-300' : 'text-slate-500'}`}>
             <Menu className="w-7 h-7" />
           </button>
 
@@ -201,10 +212,15 @@ const Layout: React.FC<{ children: React.ReactNode; user: User; onLogout: () => 
           </div>
 
           <div className="flex items-center space-x-6 space-x-reverse relative">
-            <div className="hidden lg:flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 shadow-inner">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">متصل بـ Supabase</span>
-            </div>
+
+            {/* Dark Mode Toggle */}
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className={`p-3 rounded-2xl transition-all ${darkMode ? 'bg-slate-700 text-amber-400' : 'bg-slate-100/50 text-slate-500 hover:text-rose-600'}`}
+              title={darkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}
+            >
+              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
 
             <div className="relative">
               <button
@@ -283,7 +299,7 @@ const Layout: React.FC<{ children: React.ReactNode; user: User; onLogout: () => 
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8 lg:p-12 scrollbar-hide">
+        <div className={`flex-1 overflow-y-auto p-8 lg:p-12 scrollbar-hide ${darkMode ? 'text-white' : ''}`}>
           {children}
         </div>
       </main>

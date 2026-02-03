@@ -69,7 +69,7 @@ const AICenter: React.FC<{ user: any }> = ({ user }) => {
         const { error } = await supabase.from('agency_settings').upsert({
           key: 'gemini_api_key',
           value: manualKey,
-          description: 'Global Gemini API Key'
+          description: 'Global AI Key'
         });
 
         if (error) throw error;
@@ -118,7 +118,7 @@ const AICenter: React.FC<{ user: any }> = ({ user }) => {
     }
 
     // Prompt if totally missing
-    const inputKey = prompt('الرجاء إدخال مفتاح Gemini API للمتابعة (سيتم حفظه محلياً):');
+    const inputKey = prompt('الرجاء إدخال مفتاح الذكاء الاصطناعي للمتابعة (سيتم حفظه محلياً):');
     if (inputKey) {
       localStorage.setItem('gemini_api_key', inputKey);
       setApiKeyStatus('connected');
@@ -324,7 +324,7 @@ const AICenter: React.FC<{ user: any }> = ({ user }) => {
                 </div>
               )}
             </div>
-            <p className="text-slate-500 font-bold mt-1 text-lg">استخدم مفتاحك الآن لتفعيل أقوى نماذج Gemini Pro و Veo.</p>
+            <p className="text-slate-500 font-bold mt-1 text-lg">استخدم مفتاحك لتفعيل محرك الذكاء الاصطناعي الخاص بنا.</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -357,7 +357,7 @@ const AICenter: React.FC<{ user: any }> = ({ user }) => {
       <div className="bg-white p-2 rounded-[2.5rem] border-2 border-slate-100 shadow-xl inline-flex flex-wrap gap-1">
         {[
           { id: 'chat', label: 'الدميري (Chat)', icon: Bot },
-          { id: 'image', label: 'استوديو الصور (Gemini 3 Pro)', icon: ImageIcon },
+          { id: 'image', label: 'استوديو الصور (Dmery Pro)', icon: ImageIcon },
           { id: 'video', label: 'مصنع الفيديو (Veo)', icon: Video },
         ].map(tool => (
           <button
@@ -468,7 +468,7 @@ const AICenter: React.FC<{ user: any }> = ({ user }) => {
                   className="w-full py-6 bg-slate-900 text-white font-black rounded-[2rem] shadow-2xl hover:bg-rose-600 disabled:opacity-50 transition-all flex items-center justify-center gap-4 text-lg active:scale-95"
                 >
                   {isProcessingImage ? <Loader2 className="w-7 h-7 animate-spin" /> : <Zap className="w-7 h-7 text-rose-500 animate-pulse" />}
-                  {imageMode === 'generate' ? 'توليد الصورة بـ Gemini 3 Pro' : 'تطبيق التعديلات بـ Gemini 2.5'}
+                  {imageMode === 'generate' ? 'توليد الصورة بـ Dmery Pro' : 'تطبيق التعديلات بـ Dmery AI'}
                 </button>
               </div>
             </div>
@@ -605,7 +605,7 @@ const AICenter: React.FC<{ user: any }> = ({ user }) => {
       <div className="flex items-center justify-center gap-10 text-slate-300">
         <div className="flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-          <span className="text-[10px] font-black uppercase tracking-widest">تفعيل Gemini 3 Pro</span>
+          <span className="text-[10px] font-black uppercase tracking-widest">Dmery AI مفعّل</span>
         </div>
         <div className="flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
