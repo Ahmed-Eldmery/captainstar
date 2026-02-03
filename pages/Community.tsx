@@ -3,10 +3,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Users, MessageSquare, Megaphone, HelpCircle,
   Heart, Send, Link as LinkIcon, Award, Sparkles,
-  Filter, Zap, ChevronLeft, Globe, Star, Plus, ShieldCheck
+  Filter, Zap, ChevronLeft, Globe, Star, Plus, ShieldCheck, Settings, Lock
 } from 'lucide-react';
 import { User, Role, CommunityPost, TeamRole } from '../types';
-import { db, generateId } from '../lib/supabase.ts';
+import { db, generateId, supabase } from '../lib/supabase.ts';
 
 interface CommunityProps {
   user: User;
@@ -15,10 +15,52 @@ interface CommunityProps {
   setPosts: React.Dispatch<React.SetStateAction<CommunityPost[]>>;
 }
 
+// Posting permission levels
+type PostingPermission = 'owner_only' | 'admins' | 'team_members' | 'everyone';
+
 const Community: React.FC<CommunityProps> = ({ user, users, posts, setPosts }) => {
   const [selectedDept, setSelectedDept] = useState<string>(user.teamRole);
   const [postContent, setPostContent] = useState('');
   const [postType, setPostType] = useState<'announcement' | 'discussion' | 'help'>('discussion');
+  const [postingPermission, setPostingPermission] = useState<PostingPermission>('owner_only');
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Load posting permissions from DB
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const { data } = await supabase.from('agency_settings').select('value').eq('key', 'community_posting_permission').single();
+        if (data?.value) setPostingPermission(data.value as PostingPermission);
+      } catch (e) {
+        // Default to owner_only
+      }
+    };
+    loadSettings();
+  }, []);
+
+  // Check if user can post
+  const canPost = useMemo(() => {
+    if (user.role === Role.OWNER) return true;
+    if (postingPermission === 'owner_only') return false;
+    if (postingPermission === 'admins') return user.role === Role.ADMIN;
+    if (postingPermission === 'team_members') return true;
+    if (postingPermission === 'everyone') return true;
+    return false;
+  }, [user.role, postingPermission]);
+
+  // Save posting permission
+  const savePostingPermission = async (newPermission: PostingPermission) => {
+    setPostingPermission(newPermission);
+    try {
+      await supabase.from('agency_settings').upsert({
+        key: 'community_posting_permission',
+        value: newPermission,
+        description: 'Who can post in Community'
+      });
+    } catch (e) {
+      console.error('Failed to save posting permission');
+    }
+  };
 
   const departments = [
     'مبرمج ويب', 'صانع محتوى', 'مصمم جرافيك', 'مونتير فيديو',
@@ -127,16 +169,55 @@ const Community: React.FC<CommunityProps> = ({ user, users, posts, setPosts }) =
           </h1>
           <p className="text-slate-500 font-bold mt-2 text-lg">الساحة التفاعلية لتبادل الخبرات والتعاون بين الأقسام.</p>
         </div>
-        <div className="bg-slate-900 text-white px-8 py-4 rounded-[2rem] flex items-center gap-4 shadow-2xl">
-          <div className="w-10 h-10 bg-rose-600 rounded-xl flex items-center justify-center font-black">
-            {selectedDept.charAt(0)}
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">ساحة العمل الحالية</p>
-            <p className="text-sm font-black">{selectedDept}</p>
+        <div className="flex items-center gap-4">
+          {/* Owner Settings Button */}
+          {user.role === Role.OWNER && (
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className={`p-3 rounded-2xl transition-all ${showSettings ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+              title="إعدادات الكميونتي"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          )}
+          <div className="bg-slate-900 text-white px-8 py-4 rounded-[2rem] flex items-center gap-4 shadow-2xl">
+            <div className="w-10 h-10 bg-rose-600 rounded-xl flex items-center justify-center font-black">
+              {selectedDept.charAt(0)}
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">ساحة العمل الحالية</p>
+              <p className="text-sm font-black">{selectedDept}</p>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Owner Settings Panel */}
+      {showSettings && user.role === Role.OWNER && (
+        <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white animate-in slide-in-from-top-4 duration-300">
+          <h3 className="font-black text-lg mb-6 flex items-center gap-3">
+            <Lock className="w-5 h-5 text-rose-500" />
+            صلاحيات النشر في الكميونتي
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { value: 'owner_only', label: 'المالك فقط', desc: 'انت فقط تقدر تنشر' },
+              { value: 'admins', label: 'المالك والمديرين', desc: 'Owner + Admin' },
+              { value: 'team_members', label: 'كل الفريق', desc: 'كل أعضاء الفريق' },
+              { value: 'everyone', label: 'الجميع', desc: 'مفتوح للكل' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => savePostingPermission(opt.value as PostingPermission)}
+                className={`p-4 rounded-2xl text-right transition-all border-2 ${postingPermission === opt.value ? 'bg-rose-600 border-rose-500' : 'bg-white/5 border-white/10 hover:border-white/30'}`}
+              >
+                <p className="font-black text-sm">{opt.label}</p>
+                <p className="text-[10px] text-slate-400 mt-1">{opt.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
 
@@ -207,47 +288,58 @@ const Community: React.FC<CommunityProps> = ({ user, users, posts, setPosts }) =
               </div>
             </div>
           )}
+          {/* No permission message */}
+          {!canPost && (
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-[2.5rem] p-6 flex items-center gap-4">
+              <Lock className="w-6 h-6 text-amber-600 flex-shrink-0" />
+              <div>
+                <p className="font-black text-amber-900 text-sm">النشر مقفول حالياً</p>
+                <p className="text-xs text-amber-700 mt-1">صلاحية النشر محددة من قبل المالك. يمكنك مشاهدة المنشورات فقط.</p>
+              </div>
+            </div>
+          )}
 
           {/* Create Post Card */}
-          <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-xl space-y-8">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 font-black overflow-hidden border border-slate-200 shadow-sm">
-                {user.avatarUrl ? <img src={user.avatarUrl} className="w-full h-full object-cover" /> : user.name.charAt(0)}
+          {canPost && (
+            <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-xl space-y-8">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 font-black overflow-hidden border border-slate-200 shadow-sm">
+                  {user.avatarUrl ? <img src={user.avatarUrl} className="w-full h-full object-cover" /> : user.name.charAt(0)}
+                </div>
+                <h2 className="text-xl font-black text-slate-900">انشر خبراً أو اطلب مساعدة...</h2>
               </div>
-              <h2 className="text-xl font-black text-slate-900">انشر خبراً أو اطلب مساعدة...</h2>
-            </div>
-            <textarea
-              value={postContent}
-              onChange={(e) => setPostContent(e.target.value)}
-              placeholder={`اكتب شيئاً لزملائك في قسم ${selectedDept}...`}
-              className="w-full h-32 bg-slate-50 border-2 border-transparent focus:border-rose-100 focus:bg-white rounded-3xl p-8 font-bold outline-none transition-all shadow-inner resize-none text-slate-700"
-            />
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex p-1 bg-slate-100 rounded-2xl border border-slate-100">
+              <textarea
+                value={postContent}
+                onChange={(e) => setPostContent(e.target.value)}
+                placeholder={`اكتب شيئاً لزملائك في قسم ${selectedDept}...`}
+                className="w-full h-32 bg-slate-50 border-2 border-transparent focus:border-rose-100 focus:bg-white rounded-3xl p-8 font-bold outline-none transition-all shadow-inner resize-none text-slate-700"
+              />
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex p-1 bg-slate-100 rounded-2xl border border-slate-100">
+                  <button
+                    onClick={() => setPostType('announcement')}
+                    className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${postType === 'announcement' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400'}`}
+                  >إعلان</button>
+                  <button
+                    onClick={() => setPostType('discussion')}
+                    className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${postType === 'discussion' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400'}`}
+                  >نقاش</button>
+                  <button
+                    onClick={() => setPostType('help')}
+                    className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${postType === 'help' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400'}`}
+                  >مساعدة</button>
+                </div>
                 <button
-                  onClick={() => setPostType('announcement')}
-                  className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${postType === 'announcement' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400'}`}
-                >إعلان</button>
-                <button
-                  onClick={() => setPostType('discussion')}
-                  className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${postType === 'discussion' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400'}`}
-                >نقاش</button>
-                <button
-                  onClick={() => setPostType('help')}
-                  className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${postType === 'help' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400'}`}
-                >مساعدة</button>
+                  onClick={handleAddPost}
+                  disabled={!postContent.trim()}
+                  className="bg-rose-600 text-white px-10 py-4 rounded-2xl font-black text-sm shadow-xl shadow-rose-200 hover:bg-rose-700 transition-all flex items-center gap-3 active:scale-95 disabled:opacity-50"
+                >
+                  <Send className="w-4 h-4 rotate-180" />
+                  <span>نشر التحديث</span>
+                </button>
               </div>
-              <button
-                onClick={handleAddPost}
-                disabled={!postContent.trim()}
-                className="bg-rose-600 text-white px-10 py-4 rounded-2xl font-black text-sm shadow-xl shadow-rose-200 hover:bg-rose-700 transition-all flex items-center gap-3 active:scale-95 disabled:opacity-50"
-              >
-                <Send className="w-4 h-4 rotate-180" />
-                <span>نشر التحديث</span>
-              </button>
             </div>
-          </div>
-
+          )}
           {/* Feed */}
           <div className="space-y-6">
             {filteredPosts.map(post => {

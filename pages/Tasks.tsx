@@ -8,7 +8,7 @@ import {
 import { Link } from 'react-router-dom';
 import { Task, TaskStatus, TaskPriority, TaskType, Role, User as UserType, Client, Project } from '../types';
 import { getVisibleTasks, canUserDo } from '../lib/permissions';
-import { db, generateId } from '../lib/supabase.ts';
+import { db, generateId, supabase } from '../lib/supabase.ts';
 
 interface TasksPageProps {
   user: UserType;
@@ -59,6 +59,22 @@ const Tasks: React.FC<TasksPageProps> = ({ user, users, tasks, setTasks, clients
     try {
       await db.insert('tasks', taskToAdd);
       await db.logActivity(user.id, `إنشاء مهمة: ${taskToAdd.title}`, 'tasks', taskToAdd.id);
+
+      // Create notification for assigned user
+      if (taskToAdd.assignedToUserId) {
+        try {
+          await supabase.from('notifications').insert({
+            user_id: String(taskToAdd.assignedToUserId),
+            type: 'task_assigned',
+            title: '📋 مهمة جديدة',
+            message: `تم تكليفك بمهمة: ${taskToAdd.title}`,
+            link: `/task/${taskToAdd.id}`
+          });
+        } catch (e) {
+          console.error('Failed to create notification:', e);
+        }
+      }
+
       setTasks([taskToAdd, ...tasks]);
       setIsModalOpen(false);
       setNewTask({
