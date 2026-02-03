@@ -40,13 +40,17 @@ const Community: React.FC<CommunityProps> = ({ user, users, posts, setPosts }) =
 
   // Check if user can post
   const canPost = useMemo(() => {
+    // Everyone can post in "ساحة عامة" (General tab)
+    if (selectedDept === 'ساحة عامة') return true;
+
+    // For department-specific tabs, check permissions
     if (user.role === Role.OWNER) return true;
     if (postingPermission === 'owner_only') return false;
     if (postingPermission === 'admins') return user.role === Role.ADMIN;
     if (postingPermission === 'team_members') return true;
     if (postingPermission === 'everyone') return true;
     return false;
-  }, [user.role, postingPermission]);
+  }, [user.role, postingPermission, selectedDept]);
 
   // Save posting permission
   const savePostingPermission = async (newPermission: PostingPermission) => {
@@ -63,6 +67,7 @@ const Community: React.FC<CommunityProps> = ({ user, users, posts, setPosts }) =
   };
 
   const departments = [
+    'ساحة عامة', // General tab - everyone can post here
     'مبرمج ويب', 'صانع محتوى', 'مصمم جرافيك', 'مونتير فيديو',
     'مشتري إعلانات', 'مدير حسابات', 'مدير منصات', 'خبير سيو'
   ];
@@ -73,8 +78,8 @@ const Community: React.FC<CommunityProps> = ({ user, users, posts, setPosts }) =
     if (user.role === Role.OWNER || user.role === Role.ADMIN) {
       return departments;
     }
-    // الموظفون العاديون يرون فقط قسمهم
-    return [user.teamRole];
+    // الموظفون العاديون يرون الساحة العامة + قسمهم
+    return ['ساحة عامة', user.teamRole];
   }, [user.role, user.teamRole]);
 
   // إذا كان المستخدم لا ينتمي إلى القسم المختار (عند الدخول)، اختر القسم الأول المتاح
