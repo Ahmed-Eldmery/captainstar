@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useRef } from 'react';
-import { Search, Plus, Building2, Phone, FileUp, Globe, X, Loader2, Package, BarChart3, Grid3x3, CheckCircle2, Image as ImageIcon, Trash2, Upload, Check, Users } from 'lucide-react';
+import { Search, Plus, Building2, Phone, FileUp, Globe, X, Loader2, Package, BarChart3, Grid3x3, CheckCircle2, Image as ImageIcon, Trash2, Upload, Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { User, Role, Client, TaskType, TaskStatus } from '../types';
 import { getVisibleClients, canUserDo } from '../lib/permissions';
@@ -43,10 +43,9 @@ interface ClientsPageProps {
   clients: Client[];
   setClients: React.Dispatch<React.SetStateAction<Client[]>>;
   tasks: any[];
-  users: User[];
 }
 
-const Clients: React.FC<ClientsPageProps> = ({ user, clients, setClients, tasks, users }) => {
+const Clients: React.FC<ClientsPageProps> = ({ user, clients, setClients, tasks }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,8 +66,7 @@ const Clients: React.FC<ClientsPageProps> = ({ user, clients, setClients, tasks,
     numPlatforms: 1,
     hasCampaign: false,
     campaigns: [],
-    coverImage: '',
-    assignedTeamIds: []
+    coverImage: ''
   });
 
   const visibleClients = useMemo(() => getVisibleClients(user, clients, tasks), [user, clients, tasks]);
@@ -156,7 +154,7 @@ const Clients: React.FC<ClientsPageProps> = ({ user, clients, setClients, tasks,
           coverImage: newClient.coverImage || ''
         });
 
-        await db.logActivity(user.id, `تحديث بيانات عميل: ${newClient.name}`, 'clients', editingClientId);
+        await db.logActivity(user.id, 'تعديل بيانات عميل', 'clients', editingClientId);
         setClients(clients.map(c => c.id === editingClientId ? updatedClient : c));
       } else {
         // إضافة عميل جديد
@@ -176,12 +174,11 @@ const Clients: React.FC<ClientsPageProps> = ({ user, clients, setClients, tasks,
           hasCampaign: newClient.hasCampaign || false,
           campaigns: newClient.hasCampaign ? (newClient.campaigns || []) : [],
           coverImage: newClient.coverImage || '',
-          assignedTeamIds: newClient.assignedTeamIds || [],
           created_at: new Date().toISOString()
         };
 
         const savedClient = await db.insert('clients', clientData);
-        await db.logActivity(user.id, `إضافة عميل جديد: ${newClient.name}`, 'clients', savedClient.id);
+        await db.logActivity(user.id, 'إضافة عميل جديد', 'clients', savedClient.id);
         setClients([savedClient, ...clients]);
       }
 
@@ -575,39 +572,6 @@ const Clients: React.FC<ClientsPageProps> = ({ user, clients, setClients, tasks,
                   </div>
                 </div>
               )}
-
-              {/* Team Assignment */}
-              <div className="space-y-3 pt-4 border-t border-slate-200">
-                <label className="text-xs font-black text-slate-700 uppercase tracking-widest pr-2 flex items-center gap-2">
-                  <Users className="w-4 h-4 text-rose-600" /> تعيين فريق العمل
-                </label>
-                <p className="text-xs text-slate-400">اختر الموظفين الذين سيعملون على هذا العميل</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto p-2 bg-slate-50 rounded-2xl">
-                  {users.filter(u => u.id !== user.id).map(teamMember => (
-                    <button
-                      key={teamMember.id}
-                      type="button"
-                      onClick={() => {
-                        const currentIds = newClient.assignedTeamIds || [];
-                        if (currentIds.includes(teamMember.id)) {
-                          setNewClient({ ...newClient, assignedTeamIds: currentIds.filter(id => id !== teamMember.id) });
-                        } else {
-                          setNewClient({ ...newClient, assignedTeamIds: [...currentIds, teamMember.id] });
-                        }
-                      }}
-                      className={`p-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${(newClient.assignedTeamIds || []).includes(teamMember.id) ? 'bg-rose-600 text-white shadow-lg' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'}`}
-                    >
-                      <div className="w-6 h-6 bg-slate-200 rounded-full flex items-center justify-center text-[10px] font-black">
-                        {teamMember.name.charAt(0)}
-                      </div>
-                      <span className="truncate">{teamMember.name}</span>
-                    </button>
-                  ))}
-                </div>
-                {(newClient.assignedTeamIds?.length || 0) > 0 && (
-                  <p className="text-xs text-emerald-600 font-bold">✓ تم اختيار {newClient.assignedTeamIds?.length} أعضاء</p>
-                )}
-              </div>
             </div>
 
             {/* Buttons */}
