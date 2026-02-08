@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
@@ -7,6 +6,7 @@ import {
   Youtube, Linkedin, Heart, MessageCircle, Send, Globe as GlobeIcon
 } from 'lucide-react';
 import { User, Role, TaskType, TaskStatus, Client, Project, Task, ClientAccount } from '../types';
+import { db, generateId } from '../lib/supabase';
 
 interface ClientDetailsProps {
   user: User;
@@ -46,10 +46,10 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ user, clients, projects, 
 
   if (!client) return <div className="p-20 text-center font-black">العميل غير موجود.</div>;
 
-  const handleAddAccount = () => {
+  const handleAddAccount = async () => {
     if (!newAccount.accountName || !newAccount.username) return;
     const accountToAdd: ClientAccount = {
-      id: `ca-${Date.now()}`,
+      id: generateId(),
       clientId: client.id,
       platform: newAccount.platform,
       accountName: newAccount.accountName,
@@ -57,31 +57,56 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ user, clients, projects, 
       accountUrl: newAccount.accountUrl,
       isActive: true
     };
-    setAccounts([...accounts, accountToAdd]);
-    setIsAddAccountModalOpen(false);
-    setNewAccount({ platform: 'Instagram', accountName: '', username: '', accountUrl: '' });
+
+    try {
+      await db.insert('client_accounts', accountToAdd);
+      // setAccounts updates via realtime subscription or manual update
+      setAccounts(prev => [...prev, accountToAdd]);
+      setIsAddAccountModalOpen(false);
+      setNewAccount({ platform: 'Instagram', accountName: '', username: '', accountUrl: '' });
+    } catch (err) {
+      alert('فشل حفظ الحساب. تأكد من الاتصال بقاعدة البيانات.');
+      console.error(err);
+    }
   };
 
-  const handleDeleteAccount = (accountId: string) => {
-    setAccounts(accounts.filter(a => a.id !== accountId));
+  const handleDeleteAccount = async (accountId: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا الحساب؟')) return;
+    try {
+      await db.delete('client_accounts', accountId);
+      setAccounts(prev => prev.filter(a => a.id !== accountId));
+    } catch (err) {
+      alert('فشل حذف الحساب.');
+      console.error(err);
+    }
   };
 
   const handleSaveAccessData = async (accountId: string) => {
-    const updatedAccounts = accounts.map(a => {
-      if (a.id === accountId) {
-        return {
-          ...a,
-          accessEmail: editingAccessData.accessEmail || a.accessEmail,
-          accessPassword: editingAccessData.accessPassword || a.accessPassword,
-          notes: editingAccessData.notes || a.notes
-        };
-      }
-      return a;
-    });
-    setAccounts(updatedAccounts);
-    // TODO: Save to database via db.update
-    setEditingAccountId(null);
-    setEditingAccessData({});
+    const accountToUpdate = accounts.find(a => a.id === accountId);
+    if (!accountToUpdate) return;
+
+    const updates = {
+      accessEmail: editingAccessData.accessEmail || accountToUpdate.accessEmail,
+      accessPassword: editingAccessData.accessPassword || accountToUpdate.accessPassword,
+      notes: editingAccessData.notes || accountToUpdate.notes
+    };
+
+    try {
+      await db.update('client_accounts', accountId, updates);
+
+      setAccounts(prev => prev.map(a => {
+        if (a.id === accountId) {
+          return { ...a, ...updates };
+        }
+        return a;
+      }));
+
+      setEditingAccountId(null);
+      setEditingAccessData({});
+    } catch (err) {
+      alert('فشل تحديث بيانات الحساب.');
+      console.error(err);
+    }
   };
 
   const handleCopyUsername = (username: string, accountId: string) => {

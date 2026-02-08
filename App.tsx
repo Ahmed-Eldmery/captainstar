@@ -19,7 +19,7 @@ import {
 } from './mockData.ts';
 import { User, Role, Client, Project, Task, ClientAccount, PerformanceSnapshot, ActivityLogEntry, CommunityPost, FileAsset, AgencySettings } from './types.ts';
 import { canUserDo } from './lib/permissions.ts';
-import { supabase, db } from './lib/supabase.ts';
+import { supabase, db, toCamelCase } from './lib/supabase.ts';
 import { testDatabaseConnection } from './lib/test-db.ts';
 
 // Pages
@@ -400,7 +400,7 @@ const App: React.FC = () => {
         .channel('global_changes')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
           if (payload.eventType === 'INSERT') {
-            const newTask = payload.new as Task;
+            const newTask = toCamelCase(payload.new) as Task;
             setTasks(prev => {
               if (prev.some(t => t.id === newTask.id)) return prev;
               return [newTask, ...prev];
@@ -410,39 +410,52 @@ const App: React.FC = () => {
               alert(`🔔 مهمة جديدة: ${newTask.title}`);
             }
           } else if (payload.eventType === 'UPDATE') {
-            setTasks(prev => prev.map(t => t.id === payload.new.id ? payload.new as Task : t));
+            const updatedTask = toCamelCase(payload.new) as Task;
+            setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
           } else if (payload.eventType === 'DELETE') {
             setTasks(prev => prev.filter(t => t.id !== payload.old.id));
           }
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, (payload) => {
           if (payload.eventType === 'INSERT') {
+            const newProject = toCamelCase(payload.new) as Project;
             setProjects(prev => {
-              if (prev.some(p => p.id === (payload.new as Project).id)) return prev;
-              return [payload.new as Project, ...prev];
+              if (prev.some(p => p.id === newProject.id)) return prev;
+              return [newProject, ...prev];
             });
           }
-          else if (payload.eventType === 'UPDATE') setProjects(prev => prev.map(p => p.id === payload.new.id ? payload.new as Project : p));
+          else if (payload.eventType === 'UPDATE') {
+            const updatedProject = toCamelCase(payload.new) as Project;
+            setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+          }
           else if (payload.eventType === 'DELETE') setProjects(prev => prev.filter(p => p.id !== payload.old.id));
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, (payload) => {
           if (payload.eventType === 'INSERT') {
+            const newClient = toCamelCase(payload.new) as Client;
             setClients(prev => {
-              if (prev.some(c => c.id === (payload.new as Client).id)) return prev;
-              return [payload.new as Client, ...prev];
+              if (prev.some(c => c.id === newClient.id)) return prev;
+              return [newClient, ...prev];
             });
           }
-          else if (payload.eventType === 'UPDATE') setClients(prev => prev.map(c => c.id === payload.new.id ? payload.new as Client : c));
+          else if (payload.eventType === 'UPDATE') {
+            const updatedClient = toCamelCase(payload.new) as Client;
+            setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+          }
           else if (payload.eventType === 'DELETE') setClients(prev => prev.filter(c => c.id !== payload.old.id));
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'client_accounts' }, (payload) => {
           if (payload.eventType === 'INSERT') {
+            const newAccount = toCamelCase(payload.new) as ClientAccount;
             setAccounts(prev => {
-              if (prev.some(a => a.id === (payload.new as ClientAccount).id)) return prev;
-              return [payload.new as ClientAccount, ...prev];
+              if (prev.some(a => a.id === newAccount.id)) return prev;
+              return [newAccount, ...prev];
             });
           }
-          else if (payload.eventType === 'UPDATE') setAccounts(prev => prev.map(a => a.id === payload.new.id ? payload.new as ClientAccount : a));
+          else if (payload.eventType === 'UPDATE') {
+            const updatedAccount = toCamelCase(payload.new) as ClientAccount;
+            setAccounts(prev => prev.map(a => a.id === updatedAccount.id ? updatedAccount : a));
+          }
           else if (payload.eventType === 'DELETE') setAccounts(prev => prev.filter(a => a.id !== payload.old.id));
         })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {

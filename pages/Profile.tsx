@@ -80,20 +80,22 @@ const Profile: React.FC<ProfileProps> = ({ user, users, setUsers, onUpdate, expo
    };
 
    const handleSave = async () => {
-      const updatedUser = {
-         ...user,
+      const updates: Partial<User> = {
          name: formData.name,
          email: formData.email,
          avatarUrl: formData.avatarUrl,
-         // Only update password if provided
-         ...(formData.password ? { password: formData.password, password_hash: formData.password } : {})
+         // Update passwordHash if password is provided, otherwise keep existing
+         passwordHash: formData.password || user.passwordHash
       };
 
       try {
          // Save to Database
-         await db.update('users', updatedUser.id, updatedUser);
+         // db.update converts camelCase keys to snake_case (e.g. passwordHash -> password_hash)
+         await db.update('users', user.id, updates);
 
          // Update Local State
+         const updatedUser = { ...user, ...updates };
+
          setIsSaved(true);
          onUpdate(updatedUser);
          // Update Users List

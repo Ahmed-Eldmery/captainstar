@@ -17,7 +17,7 @@ export const generateId = (): string => {
 };
 
 // Helper function to convert camelCase to snake_case
-const toSnakeCase = (obj: any): any => {
+export const toSnakeCase = (obj: any): any => {
   if (obj === null || typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) return obj.map(toSnakeCase);
 
@@ -32,7 +32,7 @@ const toSnakeCase = (obj: any): any => {
 };
 
 // Helper function to convert snake_case to camelCase
-const toCamelCase = (obj: any): any => {
+export const toCamelCase = (obj: any): any => {
   if (obj === null || typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) return obj.map(toCamelCase);
 
