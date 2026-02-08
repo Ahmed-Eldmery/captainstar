@@ -220,33 +220,173 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ user, projects, clients
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        {/* تفاصيل المشروع الكاملة */}
-        <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-xl shadow-slate-200/30 mb-10">
-          <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3">
-            <FileText className="text-blue-500 w-6 h-6" /> تفاصيل المشروع
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-slate-700 text-sm font-bold">
-            <div><span className="text-slate-400">نوع الحملة:</span> {project.type || '-'}</div>
-            <div><span className="text-slate-400">النيتش:</span> {project.niche || '-'}</div>
-            <div><span className="text-slate-400">تاريخ الاستلام:</span> {project.receivedDate || '-'}</div>
-            <div><span className="text-slate-400">الملخص:</span> {project.brief || '-'}</div>
-            <div><span className="text-slate-400">المنصات:</span> {Array.isArray(project.platforms) ? project.platforms.join(', ') : '-'}</div>
-            <div><span className="text-slate-400">أنواع الحملات:</span> {Array.isArray(project.campaignTypes) ? project.campaignTypes.join(', ') : '-'}</div>
-            <div><span className="text-slate-400">رابط الموقع:</span> {project.website?.link ? <a href={project.website.link} className="text-blue-600 underline" target="_blank" rel="noopener noreferrer">{project.website.link}</a> : '-'}</div>
-            <div><span className="text-slate-400">حسابات مرتبطة:</span> {Array.isArray(project.accounts) && project.accounts.length > 0 ? project.accounts.join(', ') : '-'}</div>
-            <div><span className="text-slate-400">رابط Google Drive:</span> {project.driveLink ? <a href={project.driveLink} className="text-blue-600 underline" target="_blank" rel="noopener noreferrer">Drive</a> : '-'}</div>
-            <div><span className="text-slate-400">رابط Product Sheet:</span> {project.productSheetLink ? <a href={project.productSheetLink} className="text-blue-600 underline" target="_blank" rel="noopener noreferrer">Product Sheet</a> : '-'}</div>
-            <div><span className="text-slate-400">كوبي وتصميم:</span> {project.copyAndDesign || '-'}</div>
-            <div><span className="text-slate-400">موشن:</span> {project.motion || '-'}</div>
-            <div><span className="text-slate-400">تفاصيل الحملة:</span> {project.campaignDetails?.notes || '-'}</div>
-            <div><span className="text-slate-400">تقرير شهري:</span> {project.monthlyReport || '-'}</div>
-            <div><span className="text-slate-400">حالة العميل:</span> {project.clientStatus || '-'}</div>
-            <div><span className="text-slate-400">تاريخ البداية:</span> {project.startDate || '-'}</div>
-            <div><span className="text-slate-400">تاريخ النهاية:</span> {project.endDate || '-'}</div>
-            <div><span className="text-slate-400">الهدف:</span> {project.objective || '-'}</div>
+      <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-xl shadow-slate-200/30 mb-8 overflow-hidden relative">
+        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-rose-500"></div>
+
+        <div className="flex items-center gap-4 mb-8">
+          <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-slate-200">
+            <FileText className="w-6 h-6" />
+          </div>
+          <h3 className="text-2xl font-black text-slate-900">بطاقة المشروع</h3>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* العمود الأول: المعلومات الأساسية */}
+          <div className="space-y-6 lg:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">تفاصيل الحملة</p>
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700">{project.type || 'غير محدد'}</span>
+                  <span className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700">{project.niche || 'غير محدد'}</span>
+                </div>
+                {Array.isArray(project.campaignTypes) && project.campaignTypes.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-slate-200">
+                    {project.campaignTypes.map(t => (
+                      <span key={t} className="text-[10px] font-black bg-slate-200 text-slate-600 px-2 py-1 rounded">{t}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">المنصات المستهدفة</p>
+                <div className="flex flex-wrap gap-2">
+                  {Array.isArray(project.platforms) && project.platforms.length > 0 ? (
+                    project.platforms.map(p => (
+                      <span key={p} className="px-3 py-1 bg-rose-50 border border-rose-100 text-rose-600 rounded-lg text-sm font-bold">{p}</span>
+                    ))
+                  ) : <span className="text-slate-400 text-sm font-bold">لم تحدد منصات</span>}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                <FileText className="w-24 h-24 text-slate-900" />
+              </div>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">ملخص المشروع (Brief)</p>
+              <p className="text-slate-700 font-bold leading-relaxed whitespace-pre-wrap relative z-10">
+                {project.brief || 'لا يوجد ملخص متاح لهذا المشروع.'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-blue-50/50 p-6 rounded-[2rem] border border-blue-100 space-y-3">
+                <p className="text-xs font-black text-blue-400 uppercase tracking-widest">توجيهات الكوبي والديزاين</p>
+                <p className="text-sm font-bold text-slate-700">{project.copyAndDesign || 'لا توجد توجيهات'}</p>
+              </div>
+              <div className="bg-purple-50/50 p-6 rounded-[2rem] border border-purple-100 space-y-3">
+                <p className="text-xs font-black text-purple-400 uppercase tracking-widest">توجيهات الموشن</p>
+                <p className="text-sm font-bold text-slate-700">{project.motion || 'لا توجد توجيهات'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* العمود الثاني: الروابط والوصول */}
+          <div className="space-y-6">
+            <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-2xl shadow-slate-200">
+              <h4 className="text-lg font-black mb-6 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-amber-400" /> روابط سريعة
+              </h4>
+              <div className="space-y-4">
+                {project.website?.link && (
+                  <a href={project.website.link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all group">
+                    <span className="font-bold text-sm">الموقع الإلكتروني</span>
+                    <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white -rotate-45 transition-colors" />
+                  </a>
+                )}
+                {project.driveLink && (
+                  <a href={project.driveLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all group">
+                    <span className="font-bold text-sm">Google Drive</span>
+                    <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white -rotate-45 transition-colors" />
+                  </a>
+                )}
+                {project.productSheetLink && (
+                  <a href={project.productSheetLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all group">
+                    <span className="font-bold text-sm">شيت المنتجات</span>
+                    <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white -rotate-45 transition-colors" />
+                  </a>
+                )}
+                {project.monthlyReport && (
+                  <a href={project.monthlyReport} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all group">
+                    <span className="font-bold text-sm">التقرير الشهري</span>
+                    <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white -rotate-45 transition-colors" />
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {project.website && (project.website.username || project.website.password) && (
+              <div className="bg-amber-50 p-6 rounded-[2rem] border border-amber-100">
+                <p className="text-xs font-black text-amber-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <Layout className="w-4 h-4" /> بيانات الدخول للموقع
+                </p>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center text-sm border-b border-amber-100 pb-2">
+                    <span className="text-amber-800/60 font-bold">User:</span>
+                    <span className="font-bold text-amber-900 select-all">{project.website.username || '-'}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-amber-800/60 font-bold">Pass:</span>
+                    <span className="font-bold text-amber-900 select-all blur hover:blur-none transition-all cursor-pointer">{project.website.password || '-'}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {Array.isArray(project.accounts) && project.accounts.length > 0 && (
+              <div className="bg-indigo-50 p-6 rounded-[2rem] border border-indigo-100">
+                <p className="text-xs font-black text-indigo-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <Users className="w-4 h-4" /> حسابات المنصات
+                </p>
+                <div className="space-y-4">
+                  {project.accounts.map((acc, idx) => (
+                    <div key={idx} className="border-b border-indigo-200/50 pb-3 last:border-0 last:pb-0">
+                      <p className="font-bold text-indigo-900 mb-1">{acc.platform}</p>
+                      <div className="space-y-1">
+                        {acc.username && (
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-indigo-800/60 font-bold">User:</span>
+                            <span className="font-bold text-indigo-900 select-all">{acc.username}</span>
+                          </div>
+                        )}
+                        {acc.password && (
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-indigo-800/60 font-bold">Pass:</span>
+                            <span className="font-bold text-indigo-900 select-all blur hover:blur-none transition-all cursor-pointer">{acc.password}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">تواريخ هامة</p>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500 font-bold">تاريخ الاستلام</span>
+                  <span className="font-black text-slate-900">{project.receivedDate || '-'}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500 font-bold">البداية</span>
+                  <span className="font-black text-slate-900">{project.startDate || '-'}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500 font-bold">النهاية</span>
+                  <span className="font-black text-slate-900">{project.endDate || '-'}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        {/* تفاصيل المشروع الكاملة - تم نقلها للأعلى */}
         <div className="lg:col-span-2 space-y-10 text-right">
           {/* أهداف الحملة */}
           <div className="bg-white p-12 rounded-[3.5rem] border border-slate-100 shadow-xl shadow-slate-200/30">

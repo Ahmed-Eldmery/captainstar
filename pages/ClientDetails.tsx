@@ -82,16 +82,19 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ user, clients, projects, 
   };
 
   const handleSaveAccessData = async (accountId: string) => {
-    const accountToUpdate = accounts.find(a => a.id === accountId);
-    if (!accountToUpdate) return;
+    // تأكد من أننا نحدث الحساب الصحيح وأن لدينا بيانات للتحديث
+    if (!editingAccountId || editingAccountId !== accountId) return;
 
     const updates = {
-      accessEmail: editingAccessData.accessEmail || accountToUpdate.accessEmail,
-      accessPassword: editingAccessData.accessPassword || accountToUpdate.accessPassword,
-      notes: editingAccessData.notes || accountToUpdate.notes
+      // نستخدم القيم من حالة التعديل مباشرة لأنها مهيأة بالقيم الحالية عند فتح التعديل
+      accessEmail: editingAccessData.accessEmail,
+      accessPassword: editingAccessData.accessPassword,
+      notes: editingAccessData.notes
     };
 
     try {
+      // db.update سيقوم بتحويل camelCase إلى snake_case
+      // accessEmail -> access_email
       await db.update('client_accounts', accountId, updates);
 
       setAccounts(prev => prev.map(a => {
@@ -103,9 +106,11 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ user, clients, projects, 
 
       setEditingAccountId(null);
       setEditingAccessData({});
-    } catch (err) {
-      alert('فشل تحديث بيانات الحساب.');
-      console.error(err);
+      alert('تم تحديث بيانات الوصول بنجاح');
+    } catch (err: any) {
+      console.error('Save Access Data Error:', err);
+      // عرض رسالة الخطأ الحقيقية للمساعدة في التشخيص
+      alert(`فشل تحديث بيانات الحساب: ${err.message || 'خطأ غير معروف'}`);
     }
   };
 
